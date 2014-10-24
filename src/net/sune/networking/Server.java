@@ -4,7 +4,10 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.EventQueue;
 import java.awt.Font;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
@@ -47,9 +50,7 @@ public class Server
 	public static JList<String> list_clients;
 	public static DefaultListModel<String> list_clients_model;
 	public static JButton btnDisconnect;
-	public static JLabel lblServerIP;
 	public static JLabel lblConnectedClients;
-	public static JLabel lblMessage;
 	
 	public static JTextField txtMessage;
 	private static JScrollPane scrollPane;
@@ -60,7 +61,7 @@ public class Server
 	public static void WindowServer(String ip)
 	{
 		frame = new JFrame();
-		frame.setTitle("Server");
+		frame.setTitle("Server - " + ip);
 		frame.setResizable(false);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frame.setBounds(100, 100, 730, 430);
@@ -72,43 +73,41 @@ public class Server
 		list_clients_model = new DefaultListModel<String>();
 		
 		panel0 = new JPanel();
-		panel0.setBorder(new EmptyBorder(0, 0, 5, 0));
-		panel0.setLayout(new BorderLayout(0, 0));
-		
-		lblConnectedClients = new JLabel("Connected clients");
-		lblConnectedClients.setHorizontalAlignment(SwingConstants.LEFT);
-		lblConnectedClients.setFont(new Font("Tahoma", Font.PLAIN, 11));
+		panel0.setBorder(new EmptyBorder(0, 0, 3, 0));
 		
 		panel1 = new JPanel();
 		panel1.setBorder(new EmptyBorder(5, 0, 0, 0));
 		panel1.setLayout(new BorderLayout(0, 0));
-		
-		lblServerIP = new JLabel("Server IP: " + ip);
-		lblServerIP.setFont(new Font("Tahoma", Font.PLAIN, 11));
 		btnDisconnect = new JButton("Disconnect client");
 		
 		subPanel0 = new JPanel();
 		subPanel0.setBorder(new EmptyBorder(0, 0, 5, 0));
-		subPanel0.setLayout(new BorderLayout(0, 0));
 
 		subPanel1 = new JPanel();
-		subPanel1.setBorder(new EmptyBorder(0, 5, 0, 0));
 		subPanel1.setLayout(new BorderLayout(0, 0));
-		
-		lblMessage = new JLabel("Message:");
-		lblMessage.setFont(new Font("Tahoma", Font.PLAIN, 11));
 		txtMessage = new JTextField();
 		txtMessage.setColumns(100);
 		txtMessage.setFont(new Font("Consolas", Font.PLAIN, 12));
 		txtMessage.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(5, 5, 5, 5)));
-
-		panel0.add(lblConnectedClients);
+		GridBagLayout gbl_panel0 = new GridBagLayout();
+		gbl_panel0.columnWidths = new int[]{342, 253, 0};
+		gbl_panel0.rowHeights = new int[]{14, 0};
+		gbl_panel0.columnWeights = new double[]{0.0, 1.0, Double.MIN_VALUE};
+		gbl_panel0.rowWeights = new double[]{0.0, Double.MIN_VALUE};
+		panel0.setLayout(gbl_panel0);
 		panel1.add(btnDisconnect, BorderLayout.EAST);
-		panel1.add(lblServerIP, BorderLayout.WEST);
 		panel1.add(subPanel0, BorderLayout.NORTH);
-		subPanel0.add(lblMessage, BorderLayout.WEST);
-		subPanel0.add(subPanel1, BorderLayout.CENTER);
+		subPanel0.setLayout(new BorderLayout(0, 0));
+		subPanel0.add(subPanel1);
 		subPanel1.add(txtMessage);
+		
+		subPanel2 = new JPanel();
+		subPanel2.setBorder(new EmptyBorder(0, 5, 0, 0));
+		subPanel1.add(subPanel2, BorderLayout.EAST);
+		subPanel2.setLayout(new GridLayout(1, 0, 0, 0));
+		
+		btnSend = new JButton("Send");
+		subPanel2.add(btnSend);
 		
 		panelList = new JPanel();
 		contentPane.add(panelList, BorderLayout.CENTER);
@@ -119,6 +118,25 @@ public class Server
 		list_clients.setBorder(new LineBorder(new Color(0, 0, 0)));
 		list_clients.setModel(list_clients_model);
 		contentPane.add(panel0, BorderLayout.NORTH);
+		
+		lblConnectedClients = new JLabel("Connected clients");
+		lblConnectedClients.setHorizontalAlignment(SwingConstants.LEFT);
+		lblConnectedClients.setFont(new Font("Tahoma", Font.PLAIN, 11));
+		
+		GridBagConstraints gbc_lblConnectedClients = new GridBagConstraints();
+		gbc_lblConnectedClients.fill = GridBagConstraints.BOTH;
+		gbc_lblConnectedClients.insets = new Insets(0, 0, 0, 5);
+		gbc_lblConnectedClients.gridx = 0;
+		gbc_lblConnectedClients.gridy = 0;
+		panel0.add(lblConnectedClients, gbc_lblConnectedClients);
+		
+		lblConsole = new JLabel("Console");
+		lblConsole.setFont(new Font("Tahoma", Font.PLAIN, 11));
+		GridBagConstraints gbc_lblConsole = new GridBagConstraints();
+		gbc_lblConsole.anchor = GridBagConstraints.WEST;
+		gbc_lblConsole.gridx = 1;
+		gbc_lblConsole.gridy = 0;
+		panel0.add(lblConsole, gbc_lblConsole);
 		contentPane.add(panel1, BorderLayout.SOUTH);
 		
 		frame.setContentPane(contentPane);
@@ -438,6 +456,9 @@ public class Server
 			}
 		}
 	};
+	private static JPanel subPanel2;
+	private static JButton btnSend;
+	private static JLabel lblConsole;
 	
 	public static void logText(DataPackage dp)
 	{

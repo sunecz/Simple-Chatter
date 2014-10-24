@@ -29,6 +29,9 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.border.EmptyBorder;
+import java.awt.GridBagLayout;
+import java.awt.GridBagConstraints;
+import java.awt.Insets;
 
 public class Client
 {
@@ -47,12 +50,12 @@ public class Client
 	private static JButton btnDisconnect;
 	private static JButton btnConnect;
 	
-	public static void WindowClient()
+	public static void WindowClient(String ip)
 	{
 		frame = new JFrame();
 		frame.setResizable(false);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		frame.setTitle("Client");
+		frame.setTitle("Client - " + ip);
 		frame.setSize(506, 442);
 		frame.setLocationRelativeTo(null);
 		frame.getContentPane().setLayout(new BorderLayout(0, 0));
@@ -60,11 +63,72 @@ public class Client
 		panel0 = new JPanel();
 		panel0.setBorder(new EmptyBorder(10, 10, 0, 10));
 		frame.getContentPane().add(panel0, BorderLayout.NORTH);
-		panel0.setLayout(new GridLayout(0, 1, 0, 0));
+		panel0.setLayout(new BorderLayout(0, 0));
 		
 		lblMessages = new JLabel("Messages");
+		panel0.add(lblMessages, BorderLayout.SOUTH);
 		lblMessages.setFont(new Font("Tahoma", Font.PLAIN, 11));
-		panel0.add(lblMessages);
+		
+		subPanel2 = new JPanel();
+		subPanel2.setBorder(new EmptyBorder(0, 0, 10, 0));
+		panel0.add(subPanel2, BorderLayout.NORTH);
+		GridBagLayout gbl_subPanel2 = new GridBagLayout();
+		gbl_subPanel2.columnWidths = new int[]{240, 240, 0};
+		gbl_subPanel2.rowHeights = new int[]{27, 0};
+		gbl_subPanel2.columnWeights = new double[]{0.0, 0.0, Double.MIN_VALUE};
+		gbl_subPanel2.rowWeights = new double[]{0.0, Double.MIN_VALUE};
+		subPanel2.setLayout(gbl_subPanel2);
+		
+		btnDisconnect = new JButton("Disconnect");
+		btnDisconnect.addActionListener(new ActionListener()
+		{
+			@Override
+			public void actionPerformed(ActionEvent e)
+			{
+				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
+				{
+					try
+					{
+						socket.close();
+					}
+					catch(Exception ex) {}
+				}
+			}
+		});
+		
+		btnConnect = new JButton("Connect");
+		btnConnect.addActionListener(new ActionListener()
+		{
+			public void actionPerformed(ActionEvent e)
+			{
+				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
+				{
+					String strIP = JOptionPane.showInputDialog(frame, "Insert server IP", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
+					String strPort = JOptionPane.showInputDialog(frame, "Insert server port", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
+
+					if(!strIP.isEmpty() && !strPort.isEmpty())
+					{
+						int intPort = Integer.parseInt(strPort);
+						connectToServer(strIP, intPort);
+					}
+				}
+			}
+		});
+		
+		btnConnect.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
+		GridBagConstraints gbc_btnConnect = new GridBagConstraints();
+		gbc_btnConnect.fill = GridBagConstraints.BOTH;
+		gbc_btnConnect.insets = new Insets(0, 0, 0, 5);
+		gbc_btnConnect.gridx = 0;
+		gbc_btnConnect.gridy = 0;
+		subPanel2.add(btnConnect, gbc_btnConnect);
+		
+		btnDisconnect.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
+		GridBagConstraints gbc_btnDisconnect = new GridBagConstraints();
+		gbc_btnDisconnect.fill = GridBagConstraints.BOTH;
+		gbc_btnDisconnect.gridx = 1;
+		gbc_btnDisconnect.gridy = 0;
+		subPanel2.add(btnDisconnect, gbc_btnDisconnect);
 		
 		panel1 = new JPanel();
 		panel1.setBorder(new EmptyBorder(3, 10, 10, 10));
@@ -120,55 +184,19 @@ public class Client
 		subPanel1.setLayout(new GridLayout(0, 1, 0, 0));
 		
 		btnSend = new JButton("Send");
+		btnSend.addActionListener(new ActionListener()
+		{
+			public void actionPerformed(ActionEvent e)
+			{
+				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
+				{
+					sendMessage(txtMessage.getText());
+				}
+			}
+		});
+		
 		subPanel1.add(btnSend);
 		btnSend.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
-		
-		subPanel2 = new JPanel();
-		subPanel2.setBorder(new EmptyBorder(5, 0, 0, 0));
-		panel2.add(subPanel2, BorderLayout.SOUTH);
-		subPanel2.setLayout(new BorderLayout(0, 0));
-		
-		btnDisconnect = new JButton("Disconnect");
-		btnDisconnect.addActionListener(new ActionListener()
-		{
-			@Override
-			public void actionPerformed(ActionEvent e)
-			{
-				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
-				{
-					try
-					{
-						socket.close();
-					}
-					catch(Exception ex) {}
-				}
-			}
-		});
-		
-		btnDisconnect.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
-		subPanel2.add(btnDisconnect, BorderLayout.EAST);
-		
-		btnConnect = new JButton("Connect");
-		btnConnect.addActionListener(new ActionListener()
-		{
-			public void actionPerformed(ActionEvent e)
-			{
-				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
-				{
-					String strIP = JOptionPane.showInputDialog(frame, "Insert server IP", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
-					String strPort = JOptionPane.showInputDialog(frame, "Insert server port", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
-
-					if(!strIP.isEmpty() && !strPort.isEmpty())
-					{
-						int intPort = Integer.parseInt(strPort);
-						connectToServer(strIP, intPort);
-					}
-				}
-			}
-		});
-		
-		btnConnect.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
-		subPanel2.add(btnConnect, BorderLayout.WEST);
 		
 		frame.setVisible(true);
 
@@ -199,10 +227,10 @@ public class Client
 	{
 		try
 		{
-			WindowClient();
-			
 			localIP = InetAddress.getLocalHost().getHostAddress();
 			username = System.getProperty("user.name");
+			
+			WindowClient(localIP);
 			connectToServer(localIP, 2406);
 			
 			new Thread(receive).start();
