@@ -25,13 +25,12 @@ import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
-import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 
 public class Client
 {
 	private static JFrame frame;
-	private static JPanel panel;
+	private static JPanel panel0;
 	private static JLabel lblMessages;
 	private static JPanel panel1;
 	private static JTextArea textArea;
@@ -41,8 +40,6 @@ public class Client
 	
 	public static void WindowClient()
 	{
-		// try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception e) {}
-		
 		frame = new JFrame();
 		frame.setResizable(false);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -51,13 +48,14 @@ public class Client
 		frame.setLocationRelativeTo(null);
 		frame.getContentPane().setLayout(new BorderLayout(0, 0));
 		
-		panel = new JPanel();
-		panel.setBorder(new EmptyBorder(10, 10, 0, 10));
-		frame.getContentPane().add(panel, BorderLayout.NORTH);
-		panel.setLayout(new GridLayout(0, 1, 0, 0));
+		panel0 = new JPanel();
+		panel0.setBorder(new EmptyBorder(10, 10, 0, 10));
+		frame.getContentPane().add(panel0, BorderLayout.NORTH);
+		panel0.setLayout(new GridLayout(0, 1, 0, 0));
 		
 		lblMessages = new JLabel("Messages");
-		panel.add(lblMessages);
+		lblMessages.setFont(new Font("Tahoma", Font.PLAIN, 11));
+		panel0.add(lblMessages);
 		
 		panel1 = new JPanel();
 		panel1.setBorder(new EmptyBorder(3, 10, 10, 10));
@@ -73,6 +71,7 @@ public class Client
 		textArea.setLineWrap(true);
 		scrollPane.setViewportView(textArea);
 		textArea.setFont(new Font("Consolas", Font.PLAIN, 12));
+		textArea.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 		textArea.setEditable(false);
 		
 		panel2 = new JPanel();
@@ -80,16 +79,15 @@ public class Client
 		panel1.add(panel2, BorderLayout.SOUTH);
 		panel2.setLayout(new BorderLayout(0, 0));
 		
-		panel_1 = new JPanel();
-		panel_1.setBorder(new EmptyBorder(0, 0, 0, 0));
-		panel2.add(panel_1, BorderLayout.CENTER);
-		panel_1.setLayout(new GridLayout(0, 1, 0, 0));
+		subPanel0 = new JPanel();
+		subPanel0.setBorder(new EmptyBorder(0, 0, 0, 0));
+		panel2.add(subPanel0, BorderLayout.CENTER);
+		subPanel0.setLayout(new GridLayout(0, 1, 0, 0));
 		
 		txtMessage = new JTextField();
-		panel_1.add(txtMessage);
+		subPanel0.add(txtMessage);
 		txtMessage.setFont(new Font("Consolas", Font.PLAIN, 12));
-		Border border = BorderFactory.createLineBorder(Color.black, 1);
-		txtMessage.setBorder(BorderFactory.createCompoundBorder(border, BorderFactory.createEmptyBorder(5, 5, 5, 5)));
+		txtMessage.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(5, 5, 5, 5)));
 		txtMessage.setColumns(10);
 		
 		txtMessage.addKeyListener(new KeyListener()
@@ -107,14 +105,14 @@ public class Client
 			@Override public void keyTyped(KeyEvent e) {}
 		});
 
-		panel_2 = new JPanel();
-		panel_2.setBorder(new EmptyBorder(0, 5, 0, 0));
-		panel2.add(panel_2, BorderLayout.EAST);
-		panel_2.setLayout(new GridLayout(0, 1, 0, 0));
+		subPanel1 = new JPanel();
+		subPanel1.setBorder(new EmptyBorder(0, 5, 0, 0));
+		panel2.add(subPanel1, BorderLayout.EAST);
+		subPanel1.setLayout(new GridLayout(0, 1, 0, 0));
 		
 		btnSend = new JButton("Send");
-		panel_2.add(btnSend);
-		btnSend.setBorder(BorderFactory.createCompoundBorder(border, BorderFactory.createEmptyBorder(4, 10, 6, 10)));
+		subPanel1.add(btnSend);
+		btnSend.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
 		
 		frame.setVisible(true);
 
@@ -291,9 +289,9 @@ public class Client
 			}
 		}
 	};
-	private static JPanel panel_1;
+	private static JPanel subPanel0;
 	private static JButton btnSend;
-	private static JPanel panel_2;
+	private static JPanel subPanel1;
 	
 	public static void sendMessage(String msg)
 	{

@@ -32,8 +32,6 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.ScrollPaneLayout;
 import javax.swing.SwingConstants;
-import javax.swing.UIManager;
-import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 
@@ -43,8 +41,8 @@ public class Server
 	public static JPanel contentPane;
 	public static JPanel panel0;
 	public static JPanel panel1;
-	public static JPanel panel2;
-	public static JPanel panel3;
+	public static JPanel subPanel0;
+	public static JPanel subPanel1;
 	
 	public static JList<String> list_clients;
 	public static DefaultListModel<String> list_clients_model;
@@ -56,12 +54,12 @@ public class Server
 	public static JTextField txtMessage;
 	private static JScrollPane scrollPane;
 	private static JTextArea textArea;
-	private static JPanel panelc;
-	private static JPanel panel;
+	private static JPanel panelList;
+	private static JPanel panel2;
 
 	public static void WindowServer(String ip)
 	{
-		try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception e) {}
+		// try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception e) {}
 		
 		frame = new JFrame();
 		frame.setTitle("Server");
@@ -81,56 +79,58 @@ public class Server
 		
 		lblConnectedClients = new JLabel("Connected clients");
 		lblConnectedClients.setHorizontalAlignment(SwingConstants.LEFT);
+		lblConnectedClients.setFont(new Font("Tahoma", Font.PLAIN, 11));
 		
 		panel1 = new JPanel();
 		panel1.setBorder(new EmptyBorder(5, 0, 0, 0));
 		panel1.setLayout(new BorderLayout(0, 0));
 		
 		lblServerIP = new JLabel("Server IP: " + ip);
-		btnDisconnect = new JButton("Disconnect");
+		lblServerIP.setFont(new Font("Tahoma", Font.PLAIN, 11));
+		btnDisconnect = new JButton("Disconnect client");
 		
-		panel2 = new JPanel();
-		panel2.setBorder(new EmptyBorder(0, 0, 5, 0));
-		panel2.setLayout(new BorderLayout(0, 0));
+		subPanel0 = new JPanel();
+		subPanel0.setBorder(new EmptyBorder(0, 0, 5, 0));
+		subPanel0.setLayout(new BorderLayout(0, 0));
 
-		panel3 = new JPanel();
-		panel3.setBorder(new EmptyBorder(0, 5, 0, 0));
-		panel3.setLayout(new BorderLayout(0, 0));
+		subPanel1 = new JPanel();
+		subPanel1.setBorder(new EmptyBorder(0, 5, 0, 0));
+		subPanel1.setLayout(new BorderLayout(0, 0));
 		
 		lblMessage = new JLabel("Message:");
+		lblMessage.setFont(new Font("Tahoma", Font.PLAIN, 11));
 		txtMessage = new JTextField();
 		txtMessage.setColumns(100);
 		txtMessage.setFont(new Font("Consolas", Font.PLAIN, 12));
+		txtMessage.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(5, 5, 5, 5)));
 
 		panel0.add(lblConnectedClients);
 		panel1.add(btnDisconnect, BorderLayout.EAST);
 		panel1.add(lblServerIP, BorderLayout.WEST);
-		panel1.add(panel2, BorderLayout.NORTH);
-		panel2.add(lblMessage, BorderLayout.WEST);
-		panel2.add(panel3, BorderLayout.CENTER);
-		panel3.add(txtMessage);
+		panel1.add(subPanel0, BorderLayout.NORTH);
+		subPanel0.add(lblMessage, BorderLayout.WEST);
+		subPanel0.add(subPanel1, BorderLayout.CENTER);
+		subPanel1.add(txtMessage);
 		
-		panelc = new JPanel();
-		contentPane.add(panelc, BorderLayout.CENTER);
-		panelc.setLayout(new GridLayout(0, 1, 0, 0));
+		panelList = new JPanel();
+		contentPane.add(panelList, BorderLayout.CENTER);
+		panelList.setLayout(new GridLayout(0, 1, 0, 0));
 
 		list_clients = new JList<String>();
-		panelc.add(list_clients);
+		panelList.add(list_clients);
 		list_clients.setBorder(new LineBorder(new Color(0, 0, 0)));
 		list_clients.setModel(list_clients_model);
 		contentPane.add(panel0, BorderLayout.NORTH);
 		contentPane.add(panel1, BorderLayout.SOUTH);
 		
 		frame.setContentPane(contentPane);
-		
-		Border border = BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(5, 5, 5, 5));
-		
-		panel = new JPanel();
-		contentPane.add(panel, BorderLayout.EAST);
-		panel.setLayout(new GridLayout(0, 1, 0, 0));
+
+		panel2 = new JPanel();
+		contentPane.add(panel2, BorderLayout.EAST);
+		panel2.setLayout(new GridLayout(0, 1, 0, 0));
 		
 		scrollPane = new JScrollPane();
-		panel.add(scrollPane);
+		panel2.add(scrollPane);
 		scrollPane.setBorder(new EmptyBorder(0, 5, 0, 0));
 		scrollPane.setLayout(new ScrollPaneLayout());
 		scrollPane.setViewportView(textArea);
@@ -142,7 +142,7 @@ public class Server
 		textArea.setColumns(50);
 		textArea.setFont(new Font("Consolas", Font.PLAIN, 12));
 		textArea.setEditable(false);
-		textArea.setBorder(border);
+		textArea.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(5, 5, 5, 5)));
 		
 		frame.setVisible(true);
 		
