@@ -12,8 +12,11 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.event.MouseEvent;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
@@ -24,6 +27,7 @@ import java.util.ArrayList;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -139,6 +143,50 @@ public class Server
 		panel0.add(lblConsole, gbc_lblConsole);
 		contentPane.add(panel1, BorderLayout.SOUTH);
 		
+		btnSendFile = new JButton("Send file");
+		btnSendFile.addActionListener(new ActionListener()
+		{
+			public void actionPerformed(ActionEvent e)
+			{
+				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
+				{
+					JFileChooser fc = new JFileChooser();
+					fc.setMultiSelectionEnabled(false);
+					
+					if(fc.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION)
+					{
+						new Thread(new Runnable()
+						{
+							@Override
+							public void run()
+							{
+								File f = fc.getSelectedFile();
+								byte[] buffer = new byte[8192];
+								
+								try
+								{
+									FileInputStream fis = new FileInputStream(f);
+									
+									while(fis.read(buffer) > 0)
+									{
+										FileDataPackage fdp = new FileDataPackage("Server", "0.0.0.0", "file.txt").SetData(buffer);
+										sendData(fdp);
+										
+										Utils.sleep(1);
+									}
+
+									fis.close();
+								}
+								catch(Exception e) {}
+							}
+						}).start();
+					}
+				}
+			}
+		});
+		
+		panel1.add(btnSendFile, BorderLayout.WEST);
+		
 		frame.setContentPane(contentPane);
 
 		panel2 = new JPanel();
@@ -248,7 +296,7 @@ public class Server
 	
 	private static ArrayList<Message> messagesToSend = new ArrayList<Message>();
 	private static ArrayList<Message> messagesUserToSend = new ArrayList<Message>();
-	private static ArrayList<DataPackage> dataToSend = new ArrayList<DataPackage>();
+	private static ArrayList<FileDataPackage> fileDataToSend = new ArrayList<FileDataPackage>();
 	public static ArrayList<DataPackage> received = new ArrayList<DataPackage>();
 	
 	public static void sendMessage(String msg)
@@ -261,9 +309,9 @@ public class Server
 		messagesUserToSend.add(new Message(dp.getUsername(), dp.getTime(), (String) dp.getValue(), dp.getIP()));
 	}
 	
-	public static void sendData(DataPackage dp)
+	public static void sendData(FileDataPackage fdp)
 	{
-		dataToSend.add(dp);
+		fileDataToSend.add(fdp);
 	}
 	
 	private static Runnable accept = new Runnable()
@@ -329,12 +377,13 @@ public class Server
 						
 						if(client_state == 0)
 						{
-							if(dataToSend.size() > 0)
+							if(fileDataToSend.size() > 0)
 							{
-								for(DataPackage dat : dataToSend)
+								for(FileDataPackage dat : fileDataToSend)
 								{
 									oos = new ObjectOutputStream(socket.getOutputStream());
-									oos.writeObject(dat);
+									oos.writeObject(new DataPackage("file_package", dat.getBytes()));
+									logText("sent file data");
 								}
 							}
 							
@@ -371,7 +420,7 @@ public class Server
 					catch(Exception ex) {}
 				}
 				
-				dataToSend.clear();
+				fileDataToSend.clear();
 				messagesToSend.clear();
 				messagesUserToSend.clear();
 				
@@ -459,6 +508,7 @@ public class Server
 	private static JPanel subPanel2;
 	private static JButton btnSend;
 	private static JLabel lblConsole;
+	private static JButton btnSendFile;
 	
 	public static void logText(DataPackage dp)
 	{

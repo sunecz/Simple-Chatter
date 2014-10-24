@@ -3,7 +3,10 @@ package net.sune.networking;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Font;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
@@ -29,9 +32,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.border.EmptyBorder;
-import java.awt.GridBagLayout;
-import java.awt.GridBagConstraints;
-import java.awt.Insets;
 
 public class Client
 {
@@ -104,19 +104,23 @@ public class Client
 				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
 				{
 					String strIP = JOptionPane.showInputDialog(frame, "Insert server IP", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
-					String strPort = JOptionPane.showInputDialog(frame, "Insert server port", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
-
-					if(!strIP.isEmpty() && !strPort.isEmpty())
+					
+					if(strIP != null && !strIP.isEmpty())
 					{
-						int intPort = Integer.parseInt(strPort);
-						
-						new Thread(new Runnable()
+						String strPort = JOptionPane.showInputDialog(frame, "Insert server port", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
+
+						if(strPort != null && !strPort.isEmpty())
 						{
-							public void run()
+							int intPort = Integer.parseInt(strPort);
+							
+							new Thread(new Runnable()
 							{
-								connectToServer(strIP, intPort);
-							}
-						}).start();						
+								public void run()
+								{
+									connectToServer(strIP, intPort);
+								}
+							}).start();						
+						}
 					}
 				}
 			}
@@ -246,22 +250,24 @@ public class Client
 		catch(Exception e) {}
 	}
 	
-	public static void connectToServer(String ip, int port)
+	public static void connectToServer(String serverIP, int serverPort)
 	{
 		try
 		{
-			ip = InetAddress.getLocalHost().getHostAddress();
-			logText("Connecting to " + ip + ":" + port + "...");
-			
 			if(socket != null)
 			{
 				socket.close();
+				logText("Client has been disconnected from server " + ip + ":" + port + "!");
 			}
 			
-			InetSocketAddress sa = new InetSocketAddress(ip, port);
+			logText("Connecting to " + serverIP + ":" + serverPort + "...");
+			InetSocketAddress sa = new InetSocketAddress(serverIP, serverPort);
 
 			socket = new Socket();
 			socket.connect(sa, 8000);
+			
+			ip = serverIP;
+			port = serverPort;
 			
 			ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
 			oos.writeObject(new DataPackage("username", username));
@@ -291,7 +297,8 @@ public class Client
 	public static String username = "Unknown";
 	
 	public static ArrayList<DataPackage> received = new ArrayList<DataPackage>();
-	private static ArrayList<Message> messagesToSend = new ArrayList<Message>();
+	public static ArrayList<Message> messagesToSend = new ArrayList<Message>();
+	public static ArrayList<FileDataPackage> fileData = new ArrayList<FileDataPackage>();
 	
 	public static Runnable send = new Runnable()
 	{
@@ -376,6 +383,12 @@ public class Client
 						if(data.getObjectName().equals("message"))
 						{
 							logText(data);
+						}
+						
+						if(data.getObjectName().equals("file_package"))
+						{
+							byte[] bytes = (byte[]) data.getValue();
+							logText("received " + bytes.length + " bytes");
 						}
 						
 						received.remove(i);
