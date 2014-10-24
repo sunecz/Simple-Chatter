@@ -4,14 +4,17 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.event.MouseEvent;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
-import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.ArrayList;
 
@@ -37,6 +40,12 @@ public class Client
 	private static JScrollPane scrollPane;
 	private static JPanel panel2;
 	private static JTextField txtMessage;
+	private static JPanel subPanel0;
+	private static JButton btnSend;
+	private static JPanel subPanel1;
+	private static JPanel subPanel2;
+	private static JButton btnDisconnect;
+	private static JButton btnConnect;
 	
 	public static void WindowClient()
 	{
@@ -114,6 +123,53 @@ public class Client
 		subPanel1.add(btnSend);
 		btnSend.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
 		
+		subPanel2 = new JPanel();
+		subPanel2.setBorder(new EmptyBorder(5, 0, 0, 0));
+		panel2.add(subPanel2, BorderLayout.SOUTH);
+		subPanel2.setLayout(new BorderLayout(0, 0));
+		
+		btnDisconnect = new JButton("Disconnect");
+		btnDisconnect.addActionListener(new ActionListener()
+		{
+			@Override
+			public void actionPerformed(ActionEvent e)
+			{
+				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
+				{
+					try
+					{
+						socket.close();
+					}
+					catch(Exception ex) {}
+				}
+			}
+		});
+		
+		btnDisconnect.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
+		subPanel2.add(btnDisconnect, BorderLayout.EAST);
+		
+		btnConnect = new JButton("Connect");
+		btnConnect.addActionListener(new ActionListener()
+		{
+			public void actionPerformed(ActionEvent e)
+			{
+				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
+				{
+					String strIP = JOptionPane.showInputDialog(frame, "Insert server IP", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
+					String strPort = JOptionPane.showInputDialog(frame, "Insert server port", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
+
+					if(!strIP.isEmpty() && !strPort.isEmpty())
+					{
+						int intPort = Integer.parseInt(strPort);
+						connectToServer(strIP, intPort);
+					}
+				}
+			}
+		});
+		
+		btnConnect.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
+		subPanel2.add(btnConnect, BorderLayout.WEST);
+		
 		frame.setVisible(true);
 
 		frame.addWindowListener(new WindowListener()
@@ -123,12 +179,9 @@ public class Client
 			{
 				try
 				{
-					if(socket != null)
-					{
-						socket.close();
-					}
+					socket.close();
 				}
-				catch(IOException ex) {}
+				catch(Exception ex) {}
 				
 				System.exit(0);
 			}
@@ -147,14 +200,34 @@ public class Client
 		try
 		{
 			WindowClient();
-			localIP = InetAddress.getLocalHost().getHostAddress();
 			
+			localIP = InetAddress.getLocalHost().getHostAddress();
+			username = System.getProperty("user.name");
+			connectToServer(localIP, 2406);
+			
+			new Thread(receive).start();
+			new Thread(send).start();
+		}
+		catch(Exception e) {}
+	}
+	
+	public static void connectToServer(String ip, int port)
+	{
+		try
+		{
 			ip = InetAddress.getLocalHost().getHostAddress();
 			logText("Connecting to " + ip + ":" + port + "...");
 			
-			socket = new Socket(ip, port);
-			username = System.getProperty("user.name");
+			if(socket != null && socket.isConnected())
+			{
+				socket.close();
+			}
+			
+			InetSocketAddress sa = new InetSocketAddress(ip, port);
 
+			socket = new Socket();
+			socket.connect(sa, 8000);
+			
 			ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
 			oos.writeObject(new DataPackage("username", username));
 
@@ -165,9 +238,6 @@ public class Client
 			{
 				logText(data);
 			}
-			
-			new Thread(receive).start();
-			new Thread(send).start();
 		}
 		catch(Exception ex)
 		{
@@ -289,9 +359,6 @@ public class Client
 			}
 		}
 	};
-	private static JPanel subPanel0;
-	private static JButton btnSend;
-	private static JPanel subPanel1;
 	
 	public static void sendMessage(String msg)
 	{

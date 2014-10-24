@@ -59,8 +59,6 @@ public class Server
 
 	public static void WindowServer(String ip)
 	{
-		// try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception e) {}
-		
 		frame = new JFrame();
 		frame.setTitle("Server");
 		frame.setResizable(false);
