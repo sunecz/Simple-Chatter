@@ -109,7 +109,14 @@ public class Client
 					if(!strIP.isEmpty() && !strPort.isEmpty())
 					{
 						int intPort = Integer.parseInt(strPort);
-						connectToServer(strIP, intPort);
+						
+						new Thread(new Runnable()
+						{
+							public void run()
+							{
+								connectToServer(strIP, intPort);
+							}
+						}).start();						
 					}
 				}
 			}
@@ -246,7 +253,7 @@ public class Client
 			ip = InetAddress.getLocalHost().getHostAddress();
 			logText("Connecting to " + ip + ":" + port + "...");
 			
-			if(socket != null && socket.isConnected())
+			if(socket != null)
 			{
 				socket.close();
 			}
@@ -270,12 +277,6 @@ public class Client
 		catch(Exception ex)
 		{
 			logText("Cannot connect to the server!");
-			Utils.sleep(1000);
-			
-			logText("Client will be closed in 3 seconds...");
-			Utils.sleep(3000);
-			
-			System.exit(-1);
 		}
 	}
 	
