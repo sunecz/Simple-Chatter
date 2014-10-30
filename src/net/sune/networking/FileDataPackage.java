@@ -1,24 +1,28 @@
 package net.sune.networking;
 
-public class FileDataPackage
+import java.io.Serializable;
+
+@SuppressWarnings("serial")
+public class FileDataPackage implements Serializable
 {
 	private String username;
 	private String time;
 	private String ip;
 	
 	private String fileName;
-	private int bytesCount;
+	private long totalBytesCount;
 	private byte[] bytes;
 	
 	private final int buffer = 8192;
 	
-	public FileDataPackage(String username, String ip, String fileName)
+	public FileDataPackage(String username, String ip, String fileName, long totalBytesCount)
 	{
 		this.username = username;
 		this.ip = ip;
 		
 		this.fileName = fileName;
 		this.bytes = new byte[buffer];
+		this.totalBytesCount = totalBytesCount;
 	}
 	
 	public FileDataPackage SetData(byte[] b)
@@ -26,7 +30,6 @@ public class FileDataPackage
 		if(b.length <= buffer)
 		{
 			this.bytes = b;
-			this.bytesCount = b.length;
 		}
 		
 		return this;
@@ -37,9 +40,9 @@ public class FileDataPackage
 		return this.bytes;
 	}
 	
-	public int getBytesCount()
+	public long getTotalBytesCount()
 	{
-		return this.bytesCount;
+		return this.totalBytesCount;
 	}
 	
 	public String getFileName()

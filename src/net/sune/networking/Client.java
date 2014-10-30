@@ -89,7 +89,8 @@ public class Client
 				{
 					try
 					{
-						socket.close();
+						socket_messages.close();
+						socket_files.close();
 					}
 					catch(Exception ex) {}
 				}
@@ -112,14 +113,20 @@ public class Client
 						if(strPort != null && !strPort.isEmpty())
 						{
 							int intPort = Integer.parseInt(strPort);
-							
-							new Thread(new Runnable()
+							String strPort2 = JOptionPane.showInputDialog(frame, "Insert server port2", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
+
+							if(strPort2 != null && !strPort2.isEmpty())
 							{
-								public void run()
+								int intPort2 = Integer.parseInt(strPort2);
+
+								new Thread(new Runnable()
 								{
-									connectToServer(strIP, intPort);
-								}
-							}).start();						
+									public void run()
+									{
+										connectToServer(strIP, intPort, intPort2);
+									}
+								}).start();						
+							}					
 						}
 					}
 				}
@@ -218,7 +225,8 @@ public class Client
 			{
 				try
 				{
-					socket.close();
+					socket_messages.close();
+					socket_files.close();
 				}
 				catch(Exception ex) {}
 				
@@ -242,37 +250,45 @@ public class Client
 			username = System.getProperty("user.name");
 			
 			WindowClient(localIP);
-			connectToServer(localIP, 2406);
+			connectToServer(localIP, srvMessagesPort, srvFilesPort);
 			
-			new Thread(receive).start();
-			new Thread(send).start();
+			new Thread(receiveMessages).start();
+			new Thread(sendMessages).start();
+			new Thread(receiveFiles).start();
 		}
 		catch(Exception e) {}
 	}
 	
-	public static void connectToServer(String serverIP, int serverPort)
+	public static void connectToServer(String serverIP, int serverPort, int serverPort2)
 	{
 		try
 		{
-			if(socket != null)
+			if(socket_messages != null)
 			{
-				socket.close();
-				logText("Client has been disconnected from server " + ip + ":" + port + "!");
+				socket_messages.close();
+				socket_files.close();
+				
+				logText("Client has been disconnected from server " + srvIP + ":" + srvMessagesPort + "!");
 			}
 			
 			logText("Connecting to " + serverIP + ":" + serverPort + "...");
-			InetSocketAddress sa = new InetSocketAddress(serverIP, serverPort);
-
-			socket = new Socket();
-			socket.connect(sa, 8000);
 			
-			ip = serverIP;
-			port = serverPort;
+			InetSocketAddress sa_messages = new InetSocketAddress(serverIP, serverPort);
+			socket_messages = new Socket();
+			socket_messages.connect(sa_messages, 8000);
 			
-			ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
+			InetSocketAddress sa_files = new InetSocketAddress(serverIP, serverPort);
+			socket_files = new Socket();
+			socket_files.connect(sa_files, 8000);
+			
+			srvIP = serverIP;
+			srvMessagesPort = serverPort;
+			srvFilesPort = serverPort2;
+			
+			ObjectOutputStream oos = new ObjectOutputStream(socket_messages.getOutputStream());
 			oos.writeObject(new DataPackage("username", username));
 
-			ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
+			ObjectInputStream ois = new ObjectInputStream(socket_messages.getInputStream());
 			DataPackage data = (DataPackage) ois.readObject();
 			
 			if(data.getObjectName().equals("message"))
@@ -286,64 +302,37 @@ public class Client
 		}
 	}
 	
-	public static Socket socket;
-	
-	public static int port = 2406;
-	public static String ip = "";
-	
+	public static String srvIP = "";
 	public static String localIP = "";
+	
+	public static int srvMessagesPort = 2400;
+	public static int srvFilesPort = 2401;
+	
+	public static Socket socket_messages;
+	public static Socket socket_files;
 
 	public static int state = 0;
 	public static String username = "Unknown";
 	
-	public static ArrayList<DataPackage> received = new ArrayList<DataPackage>();
+	public static ArrayList<DataPackage> received_messages = new ArrayList<DataPackage>();
 	public static ArrayList<Message> messagesToSend = new ArrayList<Message>();
-	public static ArrayList<FileDataPackage> fileData = new ArrayList<FileDataPackage>();
 	
-	public static Runnable send = new Runnable()
+	public static Runnable receiveMessages = new Runnable()
 	{
 		@Override
 		public void run()
 		{
-			ObjectOutputStream oos;
-			
-			while(true)
-			{
-				try
-				{
-					if(messagesToSend.size() > 0)
-					{
-						for(Message msg : messagesToSend)
-						{
-							oos = new ObjectOutputStream(socket.getOutputStream());
-							oos.writeObject(new DataPackage("message", msg.getContent(), msg.getUsername(), msg.getIP()));
-						}
-
-						txtMessage.setText("");
-					}
-				}
-				catch(Exception e) {}
-
-				messagesToSend.clear();
-				Utils.sleep(1);
-			}
-		}
-	};
-	
-	public static Runnable receive = new Runnable()
-	{
-		@Override
-		public void run()
-		{
-			new Thread(process).start();
+			new Thread(processMessages).start();
 			ObjectInputStream ois;
 			
 			while(true)
 			{
 				try
 				{
-					ois = new ObjectInputStream(socket.getInputStream());
-					received.add((DataPackage) ois.readObject());
+					ois = new ObjectInputStream(socket_messages.getInputStream());
+					DataPackage dp = (DataPackage) ois.readObject();
+					
+					received_messages.add(dp);
 				}
 				catch(Exception e) {}
 
@@ -352,7 +341,7 @@ public class Client
 		}
 	};
 	
-	public static Runnable process = new Runnable()
+	public static Runnable processMessages = new Runnable()
 	{
 		@Override
 		public void run()
@@ -361,9 +350,9 @@ public class Client
 			{
 				try
 				{
-					for(int i = 0; i < received.size(); i++)
+					for(int i = 0; i < received_messages.size(); i++)
 					{
-						DataPackage data = received.get(i);
+						DataPackage data = received_messages.get(i);
 						
 						if(data.getObjectName().equals("client_state"))
 						{
@@ -385,13 +374,7 @@ public class Client
 							logText(data);
 						}
 						
-						if(data.getObjectName().equals("file_package"))
-						{
-							byte[] bytes = (byte[]) data.getValue();
-							logText("received " + bytes.length + " bytes");
-						}
-						
-						received.remove(i);
+						received_messages.remove(i);
 						i--;
 					}
 				}
@@ -401,12 +384,95 @@ public class Client
 			}
 		}
 	};
+
+	public static Runnable sendMessages = new Runnable()
+	{
+		@Override
+		public void run()
+		{
+			ObjectOutputStream oos;
+			
+			while(true)
+			{
+				try
+				{
+					if(messagesToSend.size() > 0)
+					{
+						for(Message msg : messagesToSend)
+						{
+							oos = new ObjectOutputStream(socket_messages.getOutputStream());
+							oos.writeObject(new DataPackage("message", msg.getContent(), msg.getUsername(), msg.getIP()));
+						}
+
+						txtMessage.setText("");
+					}
+				}
+				catch(Exception e) {}
+
+				messagesToSend.clear();
+				Utils.sleep(1);
+			}
+		}
+	};
 	
 	public static void sendMessage(String msg)
 	{
 		messagesToSend.add(new Message(username, Utils.getCurrentDateFormatted(), msg, localIP));
 	}
+
+	public static ArrayList<FileDataPackage> received_files = new ArrayList<FileDataPackage>();
+	public static ArrayList<FileDataPackage> filesToSend = new ArrayList<FileDataPackage>();
+	public static ArrayList<FileDataPackage> processed_files = new ArrayList<FileDataPackage>();
+
+	public static Runnable receiveFiles = new Runnable()
+	{
+		@Override
+		public void run()
+		{
+			new Thread(processFiles).start();
+			ObjectInputStream ois;
+			
+			while(true)
+			{
+				try
+				{
+					ois = new ObjectInputStream(socket_files.getInputStream());
+					FileDataPackage dp = (FileDataPackage) ois.readObject();
+					
+					received_files.add(dp);
+				}
+				catch(Exception e) {}
+
+				Utils.sleep(1);
+			}
+		}
+	};
 	
+	public static Runnable processFiles = new Runnable()
+	{
+		@Override
+		public void run()
+		{
+			while(true)
+			{
+				try
+				{
+					for(int i = 0; i < received_files.size(); i++)
+					{
+						FileDataPackage data = received_files.get(i);
+						processed_files.add(data);
+						
+						received_files.remove(i);
+						i--;
+					}
+				}
+				catch(Exception e) {}
+
+				Utils.sleep(1);
+			}
+		}
+	};
+
 	public static void logText(DataPackage dp)
 	{
 		String text = (String) dp.getValue();
