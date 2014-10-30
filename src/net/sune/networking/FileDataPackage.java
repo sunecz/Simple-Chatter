@@ -10,28 +10,24 @@ public class FileDataPackage implements Serializable
 	private String ip;
 	
 	private String fileName;
-	private long totalBytesCount;
+	private long fileSize;
+	
 	private byte[] bytes;
 	
-	private final int buffer = 8192;
-	
-	public FileDataPackage(String username, String ip, String fileName, long totalBytesCount)
+	public FileDataPackage(String username, String ip, String fileName, long fileSize, int bytesCount)
 	{
 		this.username = username;
 		this.ip = ip;
 		
 		this.fileName = fileName;
-		this.bytes = new byte[buffer];
-		this.totalBytesCount = totalBytesCount;
+		this.fileSize = fileSize;
+		
+		this.bytes = new byte[bytesCount];
 	}
 	
 	public FileDataPackage SetData(byte[] b)
 	{
-		if(b.length <= buffer)
-		{
-			this.bytes = b;
-		}
-		
+		this.bytes = b;
 		return this;
 	}
 	
@@ -39,15 +35,15 @@ public class FileDataPackage implements Serializable
 	{
 		return this.bytes;
 	}
-	
-	public long getTotalBytesCount()
-	{
-		return this.totalBytesCount;
-	}
-	
+
 	public String getFileName()
 	{
 		return this.fileName;
+	}
+	
+	public long getFileSize()
+	{
+		return this.fileSize;
 	}
 	
 	public String getUsername()

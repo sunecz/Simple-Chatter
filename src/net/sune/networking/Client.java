@@ -14,6 +14,7 @@ import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
+import java.io.FileOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
@@ -23,6 +24,7 @@ import java.util.ArrayList;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -49,6 +51,7 @@ public class Client
 	private static JPanel subPanel2;
 	private static JButton btnDisconnect;
 	private static JButton btnConnect;
+	private static JLabel lblDownloadInfo;
 	
 	public static void WindowClient(String ip)
 	{
@@ -74,9 +77,9 @@ public class Client
 		panel0.add(subPanel2, BorderLayout.NORTH);
 		GridBagLayout gbl_subPanel2 = new GridBagLayout();
 		gbl_subPanel2.columnWidths = new int[]{240, 240, 0};
-		gbl_subPanel2.rowHeights = new int[]{27, 0};
+		gbl_subPanel2.rowHeights = new int[]{27, 0, 0};
 		gbl_subPanel2.columnWeights = new double[]{0.0, 0.0, Double.MIN_VALUE};
-		gbl_subPanel2.rowWeights = new double[]{0.0, Double.MIN_VALUE};
+		gbl_subPanel2.rowWeights = new double[]{0.0, 0.0, Double.MIN_VALUE};
 		subPanel2.setLayout(gbl_subPanel2);
 		
 		btnDisconnect = new JButton("Disconnect");
@@ -136,17 +139,24 @@ public class Client
 		btnConnect.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
 		GridBagConstraints gbc_btnConnect = new GridBagConstraints();
 		gbc_btnConnect.fill = GridBagConstraints.BOTH;
-		gbc_btnConnect.insets = new Insets(0, 0, 0, 5);
+		gbc_btnConnect.insets = new Insets(0, 0, 5, 5);
 		gbc_btnConnect.gridx = 0;
 		gbc_btnConnect.gridy = 0;
 		subPanel2.add(btnConnect, gbc_btnConnect);
 		
 		btnDisconnect.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
 		GridBagConstraints gbc_btnDisconnect = new GridBagConstraints();
+		gbc_btnDisconnect.insets = new Insets(0, 0, 5, 0);
 		gbc_btnDisconnect.fill = GridBagConstraints.BOTH;
 		gbc_btnDisconnect.gridx = 1;
 		gbc_btnDisconnect.gridy = 0;
 		subPanel2.add(btnDisconnect, gbc_btnDisconnect);
+		
+		lblDownloadInfo = new JLabel("No downloads are running");
+		GridBagConstraints gbc_lblDownloadInfo = new GridBagConstraints();
+		gbc_lblDownloadInfo.gridx = 1;
+		gbc_lblDownloadInfo.gridy = 1;
+		subPanel2.add(lblDownloadInfo, gbc_lblDownloadInfo);
 		
 		panel1 = new JPanel();
 		panel1.setBorder(new EmptyBorder(3, 10, 10, 10));
@@ -277,7 +287,7 @@ public class Client
 			socket_messages = new Socket();
 			socket_messages.connect(sa_messages, 8000);
 			
-			InetSocketAddress sa_files = new InetSocketAddress(serverIP, serverPort);
+			InetSocketAddress sa_files = new InetSocketAddress(serverIP, serverPort2);
 			socket_files = new Socket();
 			socket_files.connect(sa_files, 8000);
 			
@@ -437,9 +447,13 @@ public class Client
 				try
 				{
 					ois = new ObjectInputStream(socket_files.getInputStream());
-					FileDataPackage dp = (FileDataPackage) ois.readObject();
+					DataPackage dp = (DataPackage) ois.readObject();
 					
-					received_files.add(dp);
+					if(dp.getObjectName().equals("file_data"))
+					{
+						FileDataPackage fdp = (FileDataPackage) dp.getValue();
+						received_files.add(fdp);
+					}
 				}
 				catch(Exception e) {}
 
@@ -447,6 +461,9 @@ public class Client
 			}
 		}
 	};
+	
+	public static ArrayList<String> fileNames = new ArrayList<String>();
+	public static ArrayList<FileData> fileData = new ArrayList<FileData>();
 	
 	public static Runnable processFiles = new Runnable()
 	{
@@ -459,9 +476,56 @@ public class Client
 				{
 					for(int i = 0; i < received_files.size(); i++)
 					{
-						FileDataPackage data = received_files.get(i);
-						processed_files.add(data);
+						FileDataPackage data = received_files.get(i);	
+						String fileName = data.getFileName();
+						long fileSize = data.getFileSize();
 						
+						if(!fileNames.contains(fileName))
+						{
+							fileNames.add(fileName);
+							fileData.add(new FileData(fileName, fileSize));
+						}
+						
+						int index = fileNames.indexOf(fileName);
+						FileData fd = (FileData) fileData.get(index);
+						
+						byte[] bytes = data.getBytes();
+						fd.addBytes(bytes);
+
+						int percent = (int) ((fd.getCurrentSize() * 100) / fileSize);
+						lblDownloadInfo.setText("Downloading " + fileName + "... " + percent + "%");
+						
+						fileData.set(index, fd);
+						if(fd.getCurrentSize() >= fileSize)
+						{
+							fileNames.remove(index);
+							fileData.remove(index);
+							
+							lblDownloadInfo.setText("No downloads are running");
+							new Thread(new Runnable()
+							{
+								@Override
+								public void run()
+								{
+									JFileChooser jfc = new JFileChooser();
+									
+									if(jfc.showSaveDialog(null) == JFileChooser.APPROVE_OPTION)
+									{
+										try
+										{
+											String path = jfc.getSelectedFile().getAbsolutePath();
+											FileOutputStream fos = new FileOutputStream(path);
+											byte[] fileBytes = fd.getBytes();
+											
+											fos.write(fileBytes, 0, fileBytes.length);
+											fos.close();
+										}
+										catch (Exception e) {}
+									}
+								}
+							}).start();
+						}
+
 						received_files.remove(i);
 						i--;
 					}

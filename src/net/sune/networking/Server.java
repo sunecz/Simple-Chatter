@@ -173,13 +173,17 @@ public class Server
 								try
 								{
 									FileInputStream fis = new FileInputStream(f);
-									
-									while(fis.read(buffer) != -1)
+									int read = 0;
+
+									while((read = fis.read(buffer)) != -1)
 									{
-										FileDataPackage fdp = new FileDataPackage("Server", "0.0.0.0", fileName, fileSize).SetData(buffer);
+										byte[] bytes = new byte[read];
+										System.arraycopy(buffer, 0, bytes, 0, read);
+										
+										FileDataPackage fdp = new FileDataPackage("Server", "0.0.0.0", fileName, fileSize, read).SetData(bytes);
 										sendFileData(fdp);
 
-										Utils.sleep(1);
+										Utils.sleep(40);
 									}
 
 									fis.close();
@@ -278,10 +282,11 @@ public class Server
 			{
 				try
 				{
-					srvIP = InetAddress.getLocalHost().getHostAddress();
+					InetAddress addr = InetAddress.getLocalHost();
+					srvIP = addr.getHostAddress();
 					
-					srvMessages = new ServerSocket(srvMessagesPort, 0, InetAddress.getLocalHost());
-					srvFiles = new ServerSocket(srvFilesPort, 0, InetAddress.getLocalHost());
+					srvMessages = new ServerSocket(srvMessagesPort, 0, addr);
+					srvFiles = new ServerSocket(srvFilesPort, 0, addr);
 
 					new Thread(acceptMessages).start();
 					new Thread(acceptFiles).start();
@@ -595,7 +600,7 @@ public class Server
 					{					
 						Socket socket = sockets_files.get(i);
 						int client_state = clients_states.get(i);
-
+						
 						if(client_state == 0)
 						{
 							if(filesToSend.size() > 0)
@@ -603,7 +608,9 @@ public class Server
 								for(FileDataPackage fdp : filesToSend)
 								{
 									oos = new ObjectOutputStream(socket.getOutputStream());
-									oos.writeObject(new DataPackage("message", fdp));
+									oos.writeObject(new DataPackage("file_data", fdp));
+
+									Utils.sleep(20);
 								}
 							}
 							
@@ -612,7 +619,9 @@ public class Server
 								for(FileDataPackage fdp : filesUserToSend)
 								{
 									oos = new ObjectOutputStream(socket.getOutputStream());
-									oos.writeObject(new DataPackage("message", fdp, fdp.getUsername(), fdp.getIP()));
+									oos.writeObject(new DataPackage("file_data", fdp, fdp.getUsername(), fdp.getIP()));
+									
+									Utils.sleep(20);
 								}
 							}
 						}
