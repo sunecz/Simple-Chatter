@@ -53,7 +53,7 @@ public class Client
 	private static JButton btnConnect;
 	private static JLabel lblDownloadInfo;
 	
-	public static void WindowClient(String ip)
+	private static void WindowClient(String ip)
 	{
 		frame = new JFrame();
 		frame.setResizable(false);
@@ -270,8 +270,8 @@ public class Client
 		catch(Exception e) {}
 	}
 	
-	public static boolean enableThreads = true;
-	public static void connectToServer(String serverIP, int serverPort, int serverPort2)
+	private static boolean enableThreads = true;
+	private static void connectToServer(String serverIP, int serverPort, int serverPort2)
 	{
 		try
 		{
@@ -317,22 +317,21 @@ public class Client
 		}
 	}
 	
-	public static String srvIP = "";
-	public static String localIP = "";
+	private static String srvIP = "";
+	private static String localIP = "";
 	
-	public static int srvMessagesPort = 2400;
-	public static int srvFilesPort = 2401;
+	private static int srvMessagesPort = 2400;
+	private static int srvFilesPort = 2401;
 	
-	public static Socket socket_messages;
-	public static Socket socket_files;
+	private static Socket socket_messages;
+	private static Socket socket_files;
 
-	public static int state = 0;
-	public static String username = "Unknown";
+	private static String username = "Unknown";
 	
-	public static ArrayList<DataPackage> received_messages = new ArrayList<DataPackage>();
-	public static ArrayList<Message> messagesToSend = new ArrayList<Message>();
+	private static ArrayList<DataPackage> received_messages = new ArrayList<DataPackage>();
+	private static ArrayList<Message> messagesToSend = new ArrayList<Message>();
 	
-	public static Runnable receiveMessages = new Runnable()
+	private static Runnable receiveMessages = new Runnable()
 	{
 		@Override
 		public void run()
@@ -359,7 +358,7 @@ public class Client
 		}
 	};
 	
-	public static Runnable processMessages = new Runnable()
+	private static Runnable processMessages = new Runnable()
 	{
 		@Override
 		public void run()
@@ -378,11 +377,7 @@ public class Client
 							{
 								int receive_state = (int) data.getValue();
 								
-								if(receive_state == 0)
-								{
-									state = receive_state;
-								}
-								else
+								if(receive_state != 0)
 								{
 									JOptionPane.showMessageDialog(null, "You have been disconnected!", "Disconnected", JOptionPane.INFORMATION_MESSAGE);
 									System.exit(0);
@@ -406,7 +401,7 @@ public class Client
 		}
 	};
 
-	public static Runnable sendMessages = new Runnable()
+	private static Runnable sendMessages = new Runnable()
 	{
 		@Override
 		public void run()
@@ -439,17 +434,15 @@ public class Client
 		}
 	};
 	
-	public static void sendMessage(String msg)
+	private static void sendMessage(String msg)
 	{
 		messagesToSend.add(new Message(username, Utils.getCurrentDateFormatted(), msg, localIP));
 	}
 
-	public static ArrayList<FileDataPackage> received_files = new ArrayList<FileDataPackage>();
-	public static ArrayList<FileDataPackage> filesToSend = new ArrayList<FileDataPackage>();
-	public static ArrayList<FileDataPackage> processed_files = new ArrayList<FileDataPackage>();
-	public static ArrayList<DataPackage> fileStatusesToSend = new ArrayList<DataPackage>();
+	private static ArrayList<FileDataPackage> received_files = new ArrayList<FileDataPackage>();
+	private static ArrayList<DataPackage> fileStatusesToSend = new ArrayList<DataPackage>();
 
-	public static Runnable receiveFiles = new Runnable()
+	private static Runnable receiveFiles = new Runnable()
 	{
 		@Override
 		public void run()
@@ -484,11 +477,11 @@ public class Client
 		}
 	};
 	
-	public static ArrayList<String> fileNames = new ArrayList<String>();
-	public static ArrayList<FileData> fileData = new ArrayList<FileData>();
-	public static ArrayList<byte[]> fileChunks = new ArrayList<byte[]>();
+	private static ArrayList<String> fileNames = new ArrayList<String>();
+	private static ArrayList<FileData> fileData = new ArrayList<FileData>();
+	private static ArrayList<byte[]> fileChunks = new ArrayList<byte[]>();
 	
-	public static Runnable processFiles = new Runnable()
+	private static Runnable processFiles = new Runnable()
 	{
 		@Override
 		public void run()
@@ -597,7 +590,7 @@ public class Client
 		}
 	};
 	
-	public static Runnable sendFiles = new Runnable()
+	private static Runnable sendFiles = new Runnable()
 	{
 		@Override
 		public void run()
@@ -628,12 +621,12 @@ public class Client
 		}
 	};
 	
-	public static void sendFileStatus(int s)
+	private static void sendFileStatus(int s)
 	{
 		fileStatusesToSend.add(new DataPackage("receive_file_data", s, username, localIP));
 	}
 
-	public static void logText(DataPackage dp)
+	private static void logText(DataPackage dp)
 	{
 		String text = (String) dp.getValue();
 		String time = dp.getTime();
@@ -645,7 +638,7 @@ public class Client
 		vertical.setValue(vertical.getMaximum());
 	}
 	
-	public static void logText(String text)
+	private static void logText(String text)
 	{
 		String time = Utils.getCurrentDateFormatted();
 		textArea.append("[Info - " + time + "]: " + text + "\n");

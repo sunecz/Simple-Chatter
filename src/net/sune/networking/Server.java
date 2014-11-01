@@ -45,19 +45,19 @@ import javax.swing.border.LineBorder;
 
 public class Server
 {
-	public static JFrame frame;
-	public static JPanel contentPane;
-	public static JPanel panel0;
-	public static JPanel panel1;
-	public static JPanel subPanel0;
-	public static JPanel subPanel1;
+	private static JFrame frame;
+	private static JPanel contentPane;
+	private static JPanel panel0;
+	private static JPanel panel1;
+	private static JPanel subPanel0;
+	private static JPanel subPanel1;
 	
-	public static JList<String> list_clients;
-	public static DefaultListModel<String> list_clients_model;
-	public static JButton btnDisconnect;
-	public static JLabel lblConnectedClients;
+	private static JList<String> list_clients;
+	private static DefaultListModel<String> list_clients_model;
+	private static JButton btnDisconnect;
+	private static JLabel lblConnectedClients;
 	
-	public static JTextField txtMessage;
+	private static JTextField txtMessage;
 	private static JScrollPane scrollPane;
 	private static JTextArea textArea;
 	private static JPanel panelList;
@@ -68,7 +68,7 @@ public class Server
 	private static JLabel lblConsole;
 	private static JButton btnSendFile;
 
-	public static void WindowServer(String ip)
+	private static void WindowServer(String ip)
 	{
 		frame = new JFrame();
 		frame.setTitle("Server - " + ip);
@@ -89,6 +89,7 @@ public class Server
 		panel1.setBorder(new EmptyBorder(5, 0, 0, 0));
 		panel1.setLayout(new BorderLayout(0, 0));
 		btnDisconnect = new JButton("Disconnect client");
+		btnDisconnect.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
 		
 		subPanel0 = new JPanel();
 		subPanel0.setBorder(new EmptyBorder(0, 0, 5, 0));
@@ -117,6 +118,7 @@ public class Server
 		subPanel2.setLayout(new GridLayout(1, 0, 0, 0));
 		
 		btnSend = new JButton("Send");
+		btnSend.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
 		subPanel2.add(btnSend);
 		
 		panelList = new JPanel();
@@ -150,6 +152,7 @@ public class Server
 		contentPane.add(panel1, BorderLayout.SOUTH);
 		
 		btnSendFile = new JButton("Send file");
+		btnSendFile.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
 		btnSendFile.addActionListener(new ActionListener()
 		{
 			public void actionPerformed(ActionEvent e)
@@ -273,17 +276,17 @@ public class Server
 		});
 	}
 	
-	public static String srvIP = "";
+	private static String srvIP = "";
 
-	public static int srvMessagesPort = 2400;
-	public static int srvFilesPort = 2401;
+	private static int srvMessagesPort = 2400;
+	private static int srvFilesPort = 2401;
 	
-	public static ServerSocket srvMessages;
-	public static ServerSocket srvFiles;
+	private static ServerSocket srvMessages;
+	private static ServerSocket srvFiles;
 	
-	public static ArrayList<Socket> sockets_messages = new ArrayList<Socket>();
-	public static ArrayList<Integer> clients_states = new ArrayList<Integer>();
-	public static ArrayList<DataPackage> received_messages = new ArrayList<DataPackage>();
+	private static ArrayList<Socket> sockets_messages = new ArrayList<Socket>();
+	private static ArrayList<Integer> clients_states = new ArrayList<Integer>();
+	private static ArrayList<DataPackage> received_messages = new ArrayList<DataPackage>();
 	
 	private static ArrayList<Message> messagesToSend = new ArrayList<Message>();
 	private static ArrayList<Message> messagesUserToSend = new ArrayList<Message>();
@@ -362,7 +365,7 @@ public class Server
 		}
 	};
 	
-	public static Runnable processMessages = new Runnable()
+	private static Runnable processMessages = new Runnable()
 	{
 		@Override
 		public void run()
@@ -463,18 +466,18 @@ public class Server
 		}
 	};	
 	
-	public static void sendMessage(String msg)
+	private static void sendMessage(String msg)
 	{
 		messagesToSend.add(new Message("Server", Utils.getCurrentDateFormatted(), msg, "0.0.0.0"));
 	}
 	
-	public static void sendUserMessage(DataPackage dp)
+	private static void sendUserMessage(DataPackage dp)
 	{
 		messagesUserToSend.add(new Message(dp.getUsername(), dp.getTime(), (String) dp.getValue(), dp.getIP()));
 	}
 	
-	public static ArrayList<Socket> sockets_files = new ArrayList<Socket>();
-	public static ArrayList<FileDataPackage> received_files = new ArrayList<FileDataPackage>();
+	private static ArrayList<Socket> sockets_files = new ArrayList<Socket>();
+	private static ArrayList<FileDataPackage> received_files = new ArrayList<FileDataPackage>();
 
 	private static ArrayList<FileDataPackage> filesToSend = new ArrayList<FileDataPackage>();
 	private static ArrayList<FileDataPackage> filesUserToSend = new ArrayList<FileDataPackage>();
@@ -550,7 +553,7 @@ public class Server
 		}
 	};
 	
-	public static Runnable processFiles = new Runnable()
+	private static Runnable processFiles = new Runnable()
 	{
 		@Override
 		public void run()
@@ -575,8 +578,8 @@ public class Server
 		}
 	};
 	
-	public static boolean canContinueSending = false;
-	public static boolean canSend = false;
+	private static boolean canContinueSending = false;
+	private static boolean canSend = false;
 	
 	private static Runnable sendFiles = new Runnable()
 	{
@@ -631,7 +634,7 @@ public class Server
 		}
 	};
 	
-	public static void sendFile(File f)
+	private static void sendFile(File f)
 	{
 		new Thread(new Runnable()
 		{
@@ -667,17 +670,17 @@ public class Server
 		}).start();
 	}
 	
-	public static void sendFileData(FileDataPackage fdp)
+	private static void sendFileData(FileDataPackage fdp)
 	{
 		filesToSend.add(fdp);
 	}
 	
-	public static void sendUserFileData(FileDataPackage fdp)
+	private static void sendUserFileData(FileDataPackage fdp)
 	{
 		filesUserToSend.add(fdp);
 	}
 
-	public static void logText(DataPackage dp)
+	private static void logText(DataPackage dp)
 	{
 		String text = (String) dp.getValue();
 		String time = dp.getTime();
@@ -689,12 +692,12 @@ public class Server
 		vertical.setValue(vertical.getMaximum());
 	}
 	
-	public static void logText(String text)
+	private static void logText(String text)
 	{
 		logText(text, "Info");
 	}
 	
-	public static void logText(String text, String name)
+	private static void logText(String text, String name)
 	{
 		String time = Utils.getCurrentDateFormatted();
 		textArea.append("[" + name + " - " + time + "]: " + text + "\n");
@@ -703,7 +706,7 @@ public class Server
 		vertical.setValue(vertical.getMaximum());
 	}
 	
-	public static void disconnectClient(int index)
+	private static void disconnectClient(int index)
 	{
 		try
 		{
@@ -720,12 +723,12 @@ public class Server
 		catch(Exception ex) {}
 	}
 	
-	public static void disconnect(int index)
+	private static void disconnect(int index)
 	{
 		clients_states.set(index, 1);
 	}
 	
-	public static void shutdown()
+	private static void shutdown()
 	{
 		for(int i = 0; i < clients_states.size(); i++)
 		{
