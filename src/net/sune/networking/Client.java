@@ -265,6 +265,7 @@ public class Client
 			new Thread(receiveMessages).start();
 			new Thread(sendMessages).start();
 			new Thread(receiveFiles).start();
+			new Thread(sendFiles).start();
 		}
 		catch(Exception e) {}
 	}
@@ -433,6 +434,7 @@ public class Client
 	public static ArrayList<FileDataPackage> received_files = new ArrayList<FileDataPackage>();
 	public static ArrayList<FileDataPackage> filesToSend = new ArrayList<FileDataPackage>();
 	public static ArrayList<FileDataPackage> processed_files = new ArrayList<FileDataPackage>();
+	public static ArrayList<DataPackage> fileStatusesToSend = new ArrayList<DataPackage>();
 
 	public static Runnable receiveFiles = new Runnable()
 	{
@@ -449,11 +451,15 @@ public class Client
 					ois = new ObjectInputStream(socket_files.getInputStream());
 					DataPackage dp = (DataPackage) ois.readObject();
 					
+					int s = 0;
 					if(dp.getObjectName().equals("file_data"))
 					{
 						FileDataPackage fdp = (FileDataPackage) dp.getValue();
 						received_files.add(fdp);
+						s = 1;
 					}
+					
+					sendFileStatus(s);
 				}
 				catch(Exception e) {}
 
@@ -464,6 +470,7 @@ public class Client
 	
 	public static ArrayList<String> fileNames = new ArrayList<String>();
 	public static ArrayList<FileData> fileData = new ArrayList<FileData>();
+	public static ArrayList<byte[]> fileChunks = new ArrayList<byte[]>();
 	
 	public static Runnable processFiles = new Runnable()
 	{
@@ -492,22 +499,45 @@ public class Client
 						byte[] bytes = data.getBytes();
 						fd.addBytes(bytes);
 
-						int percent = (int) ((fd.getCurrentSize() * 100) / fileSize);
+						long bytesCount = fd.getCurrentSize();
+						if(fileChunks.size() > 0)
+						{
+							for(byte[] bs : fileChunks)
+							{
+								bytesCount += bs.length;
+							}
+						}
+						
+						double percent = Math.round(((double) (bytesCount * 100)) / ((double) fileSize) * 10.0) / 10.0;
 						lblDownloadInfo.setText("Downloading " + fileName + "... " + percent + "%");
+
+						if(Math.ceil(fd.getCurrentSize() / 8192) > 260000)
+						{
+							fileChunks.add(fd.getBytes());
+							fd = new FileData(fileName, fileSize);
+						}
 						
 						fileData.set(index, fd);
-						if(fd.getCurrentSize() >= fileSize)
+						if(bytesCount >= fileSize)
 						{
+							if(fd.getCurrentSize() > 0)
+							{
+								fileChunks.add(fd.getBytes());
+								
+								fd = new FileData(fileName, fileSize);
+								fileData.set(index, fd);
+							}
+							
 							fileNames.remove(index);
 							fileData.remove(index);
-							
-							lblDownloadInfo.setText("No downloads are running");
+
 							new Thread(new Runnable()
 							{
 								@Override
 								public void run()
 								{
 									JFileChooser jfc = new JFileChooser();
+									jfc.setName(fileName);
 									
 									if(jfc.showSaveDialog(null) == JFileChooser.APPROVE_OPTION)
 									{
@@ -515,13 +545,24 @@ public class Client
 										{
 											String path = jfc.getSelectedFile().getAbsolutePath();
 											FileOutputStream fos = new FileOutputStream(path);
-											byte[] fileBytes = fd.getBytes();
 											
-											fos.write(fileBytes, 0, fileBytes.length);
+											long wbs = 0;
+											for(byte[] bs : fileChunks)
+											{
+												fos.write(bs);
+												
+												double percent = Math.round(((double) (wbs * 100)) / ((double) fileSize) * 10.0) / 10.0;
+												lblDownloadInfo.setText("Saving... " + percent + "%");
+												wbs += bs.length;
+											}
+											
 											fos.close();
 										}
 										catch (Exception e) {}
 									}
+									
+									fileChunks.clear();
+									lblDownloadInfo.setText("No downloads are running");
 								}
 							}).start();
 						}
@@ -536,6 +577,39 @@ public class Client
 			}
 		}
 	};
+	
+	public static Runnable sendFiles = new Runnable()
+	{
+		@Override
+		public void run()
+		{
+			ObjectOutputStream oos;
+			
+			while(true)
+			{
+				try
+				{
+					if(fileStatusesToSend.size() > 0)
+					{
+						for(DataPackage dp : fileStatusesToSend)
+						{
+							oos = new ObjectOutputStream(socket_files.getOutputStream());
+							oos.writeObject(dp);
+						}
+					}
+				}
+				catch(Exception e) {}
+
+				fileStatusesToSend.clear();
+				Utils.sleep(1);
+			}
+		}
+	};
+	
+	public static void sendFileStatus(int s)
+	{
+		fileStatusesToSend.add(new DataPackage("receive_file_data", s, username, localIP));
+	}
 
 	public static void logText(DataPackage dp)
 	{

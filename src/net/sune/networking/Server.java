@@ -15,6 +15,7 @@ import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.ObjectInputStream;
@@ -160,37 +161,8 @@ public class Server
 					
 					if(fc.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION)
 					{
-						new Thread(new Runnable()
-						{
-							@Override
-							public void run()
-							{
-								File f = fc.getSelectedFile();
-								byte[] buffer = new byte[8192];
-								String fileName = f.getName();
-								long fileSize = f.length();
-								
-								try
-								{
-									FileInputStream fis = new FileInputStream(f);
-									int read = 0;
-
-									while((read = fis.read(buffer)) != -1)
-									{
-										byte[] bytes = new byte[read];
-										System.arraycopy(buffer, 0, bytes, 0, read);
-										
-										FileDataPackage fdp = new FileDataPackage("Server", "0.0.0.0", fileName, fileSize, read).SetData(bytes);
-										sendFileData(fdp);
-
-										Utils.sleep(40);
-									}
-
-									fis.close();
-								}
-								catch(Exception e) {}
-							}
-						}).start();
+						File f = fc.getSelectedFile();
+						sendFile(f);
 					}
 				}
 			}
@@ -543,10 +515,28 @@ public class Server
 				{
 					try
 					{
-						ois = new ObjectInputStream(sockets_files.get(i).getInputStream());
-						FileDataPackage dp = (FileDataPackage) ois.readObject();
+						Socket socket = sockets_files.get(i);
 						
-						received_files.add(dp);
+						ois = new ObjectInputStream(socket.getInputStream());
+						Object o = ois.readObject();
+						
+						if(o instanceof FileDataPackage)
+						{
+							FileDataPackage fdp = (FileDataPackage) o;
+							received_files.add(fdp);
+						}
+						else if(o instanceof DataPackage)
+						{
+							DataPackage dp = (DataPackage) o;
+							
+							if(dp.getObjectName().equals("receive_file_data"))
+							{
+								int val = (int) dp.getValue();
+								
+								if(val == 1)
+									canContinueSending = true;
+							}
+						}
 					}
 					catch(Exception ex)
 					{
@@ -585,6 +575,9 @@ public class Server
 		}
 	};
 	
+	public static boolean canContinueSending = false;
+	public static boolean canSend = false;
+	
 	private static Runnable sendFiles = new Runnable()
 	{
 		@Override
@@ -594,53 +587,85 @@ public class Server
 			
 			while(true)
 			{
-				for(int i = 0; i < sockets_files.size(); i++)
+				if(canSend)
 				{
-					try
-					{					
-						Socket socket = sockets_files.get(i);
-						int client_state = clients_states.get(i);
-						
-						if(client_state == 0)
+					for(int i = 0; i < sockets_files.size(); i++)
+					{
+						try
 						{
-							if(filesToSend.size() > 0)
-							{
-								for(FileDataPackage fdp : filesToSend)
-								{
-									oos = new ObjectOutputStream(socket.getOutputStream());
-									oos.writeObject(new DataPackage("file_data", fdp));
-
-									Utils.sleep(20);
-								}
-							}
+							Socket socket = sockets_files.get(i);
+							int client_state = clients_states.get(i);
 							
-							if(filesUserToSend.size() > 0)
+							if(client_state == 0)
 							{
-								for(FileDataPackage fdp : filesUserToSend)
+								if(filesToSend.size() > 0)
 								{
-									oos = new ObjectOutputStream(socket.getOutputStream());
-									oos.writeObject(new DataPackage("file_data", fdp, fdp.getUsername(), fdp.getIP()));
-									
-									Utils.sleep(20);
+									for(FileDataPackage fdp : filesToSend)
+									{
+										oos = new ObjectOutputStream(socket.getOutputStream());
+										oos.writeObject(new DataPackage("file_data", fdp));
+										canContinueSending = false;
+										
+										while(!canContinueSending)
+										{
+											Utils.sleep(1);
+										}
+									}
 								}
 							}
+							else
+							{
+								disconnectClient(i);
+								i--;
+							}
 						}
-						else
-						{
-							disconnectClient(i);
-							i--;
-						}
+						catch(Exception ex) {}
 					}
-					catch(Exception ex) {}
+	
+					filesToSend.clear();
+					filesUserToSend.clear();
 				}
-
-				filesToSend.clear();
-				filesUserToSend.clear();
 				
 				Utils.sleep(1);
 			}
 		}
-	};	
+	};
+	
+	public static void sendFile(File f)
+	{
+		new Thread(new Runnable()
+		{
+			@Override
+			public void run()
+			{
+				byte[] buffer = new byte[8192];
+				String fileName = f.getName();
+				long fileSize = f.length();
+				
+				try
+				{
+					FileInputStream fis = new FileInputStream(f);
+					BufferedInputStream bis = new BufferedInputStream(fis);
+					
+					int read = 0;
+					canSend = false;
+					
+					while((read = bis.read(buffer)) != -1)
+					{
+						byte[] bytes = new byte[read];
+						System.arraycopy(buffer, 0, bytes, 0, read);
+						
+						FileDataPackage fdp = new FileDataPackage("Server", "0.0.0.0", fileName, fileSize, read).SetData(bytes);
+						sendFileData(fdp);
+					}
+
+					fis.close();
+					canSend = true;
+				}
+				catch(Exception e) {}
+			}
+		}).start();
+	}
 	
 	public static void sendFileData(FileDataPackage fdp)
 	{
