@@ -270,6 +270,7 @@ public class Client
 		catch(Exception e) {}
 	}
 	
+	public static boolean enableThreads = true;
 	public static void connectToServer(String serverIP, int serverPort, int serverPort2)
 	{
 		try
@@ -282,6 +283,7 @@ public class Client
 				logText("Client has been disconnected from server " + srvIP + ":" + srvMessagesPort + "!");
 			}
 			
+			enableThreads = false;
 			logText("Connecting to " + serverIP + ":" + serverPort + "...");
 			
 			InetSocketAddress sa_messages = new InetSocketAddress(serverIP, serverPort);
@@ -306,6 +308,8 @@ public class Client
 			{
 				logText(data);
 			}
+			
+			enableThreads = true;
 		}
 		catch(Exception ex)
 		{
@@ -340,10 +344,13 @@ public class Client
 			{
 				try
 				{
-					ois = new ObjectInputStream(socket_messages.getInputStream());
-					DataPackage dp = (DataPackage) ois.readObject();
-					
-					received_messages.add(dp);
+					if(enableThreads)
+					{
+						ois = new ObjectInputStream(socket_messages.getInputStream());
+						DataPackage dp = (DataPackage) ois.readObject();
+						
+						received_messages.add(dp);
+					}	
 				}
 				catch(Exception e) {}
 
@@ -361,32 +368,35 @@ public class Client
 			{
 				try
 				{
-					for(int i = 0; i < received_messages.size(); i++)
+					if(enableThreads)
 					{
-						DataPackage data = received_messages.get(i);
-						
-						if(data.getObjectName().equals("client_state"))
+						for(int i = 0; i < received_messages.size(); i++)
 						{
-							int receive_state = (int) data.getValue();
+							DataPackage data = received_messages.get(i);
 							
-							if(receive_state == 0)
+							if(data.getObjectName().equals("client_state"))
 							{
-								state = receive_state;
+								int receive_state = (int) data.getValue();
+								
+								if(receive_state == 0)
+								{
+									state = receive_state;
+								}
+								else
+								{
+									JOptionPane.showMessageDialog(null, "You have been disconnected!", "Disconnected", JOptionPane.INFORMATION_MESSAGE);
+									System.exit(0);
+								}
 							}
-							else
+							
+							if(data.getObjectName().equals("message"))
 							{
-								JOptionPane.showMessageDialog(null, "You have been disconnected!", "Disconnected", JOptionPane.INFORMATION_MESSAGE);
-								System.exit(0);
+								logText(data);
 							}
+							
+							received_messages.remove(i);
+							i--;
 						}
-						
-						if(data.getObjectName().equals("message"))
-						{
-							logText(data);
-						}
-						
-						received_messages.remove(i);
-						i--;
 					}
 				}
 				catch(Exception e) {}
@@ -407,15 +417,18 @@ public class Client
 			{
 				try
 				{
-					if(messagesToSend.size() > 0)
+					if(enableThreads)
 					{
-						for(Message msg : messagesToSend)
+						if(messagesToSend.size() > 0)
 						{
-							oos = new ObjectOutputStream(socket_messages.getOutputStream());
-							oos.writeObject(new DataPackage("message", msg.getContent(), msg.getUsername(), msg.getIP()));
+							for(Message msg : messagesToSend)
+							{
+								oos = new ObjectOutputStream(socket_messages.getOutputStream());
+								oos.writeObject(new DataPackage("message", msg.getContent(), msg.getUsername(), msg.getIP()));
+							}
+	
+							txtMessage.setText("");
 						}
-
-						txtMessage.setText("");
 					}
 				}
 				catch(Exception e) {}
@@ -448,18 +461,21 @@ public class Client
 			{
 				try
 				{
-					ois = new ObjectInputStream(socket_files.getInputStream());
-					DataPackage dp = (DataPackage) ois.readObject();
-					
-					int s = 0;
-					if(dp.getObjectName().equals("file_data"))
+					if(enableThreads)
 					{
-						FileDataPackage fdp = (FileDataPackage) dp.getValue();
-						received_files.add(fdp);
-						s = 1;
+						ois = new ObjectInputStream(socket_files.getInputStream());
+						DataPackage dp = (DataPackage) ois.readObject();
+						
+						int s = 0;
+						if(dp.getObjectName().equals("file_data"))
+						{
+							FileDataPackage fdp = (FileDataPackage) dp.getValue();
+							received_files.add(fdp);
+							s = 1;
+						}
+						
+						sendFileStatus(s);
 					}
-					
-					sendFileStatus(s);
 				}
 				catch(Exception e) {}
 
@@ -481,94 +497,97 @@ public class Client
 			{
 				try
 				{
-					for(int i = 0; i < received_files.size(); i++)
+					if(enableThreads)
 					{
-						FileDataPackage data = received_files.get(i);	
-						String fileName = data.getFileName();
-						long fileSize = data.getFileSize();
-						
-						if(!fileNames.contains(fileName))
+						for(int i = 0; i < received_files.size(); i++)
 						{
-							fileNames.add(fileName);
-							fileData.add(new FileData(fileName, fileSize));
-						}
-						
-						int index = fileNames.indexOf(fileName);
-						FileData fd = (FileData) fileData.get(index);
-						
-						byte[] bytes = data.getBytes();
-						fd.addBytes(bytes);
-
-						long bytesCount = fd.getCurrentSize();
-						if(fileChunks.size() > 0)
-						{
-							for(byte[] bs : fileChunks)
+							FileDataPackage data = received_files.get(i);	
+							String fileName = data.getFileName();
+							long fileSize = data.getFileSize();
+							
+							if(!fileNames.contains(fileName))
 							{
-								bytesCount += bs.length;
-							}
-						}
-						
-						double percent = Math.round(((double) (bytesCount * 100)) / ((double) fileSize) * 10.0) / 10.0;
-						lblDownloadInfo.setText("Downloading " + fileName + "... " + percent + "%");
-
-						if(Math.ceil(fd.getCurrentSize() / 8192) > 260000)
-						{
-							fileChunks.add(fd.getBytes());
-							fd = new FileData(fileName, fileSize);
-						}
-						
-						fileData.set(index, fd);
-						if(bytesCount >= fileSize)
-						{
-							if(fd.getCurrentSize() > 0)
-							{
-								fileChunks.add(fd.getBytes());
-								
-								fd = new FileData(fileName, fileSize);
-								fileData.set(index, fd);
+								fileNames.add(fileName);
+								fileData.add(new FileData(fileName, fileSize));
 							}
 							
-							fileNames.remove(index);
-							fileData.remove(index);
-
-							new Thread(new Runnable()
+							int index = fileNames.indexOf(fileName);
+							FileData fd = (FileData) fileData.get(index);
+							
+							byte[] bytes = data.getBytes();
+							fd.addBytes(bytes);
+	
+							long bytesCount = fd.getCurrentSize();
+							if(fileChunks.size() > 0)
 							{
-								@Override
-								public void run()
+								for(byte[] bs : fileChunks)
 								{
-									JFileChooser jfc = new JFileChooser();
-									jfc.setName(fileName);
-									
-									if(jfc.showSaveDialog(null) == JFileChooser.APPROVE_OPTION)
-									{
-										try
-										{
-											String path = jfc.getSelectedFile().getAbsolutePath();
-											FileOutputStream fos = new FileOutputStream(path);
-											
-											long wbs = 0;
-											for(byte[] bs : fileChunks)
-											{
-												fos.write(bs);
-												
-												double percent = Math.round(((double) (wbs * 100)) / ((double) fileSize) * 10.0) / 10.0;
-												lblDownloadInfo.setText("Saving... " + percent + "%");
-												wbs += bs.length;
-											}
-											
-											fos.close();
-										}
-										catch (Exception e) {}
-									}
-									
-									fileChunks.clear();
-									lblDownloadInfo.setText("No downloads are running");
+									bytesCount += bs.length;
 								}
-							}).start();
+							}
+							
+							double percent = Math.round(((double) (bytesCount * 100)) / ((double) fileSize) * 10.0) / 10.0;
+							lblDownloadInfo.setText("Downloading " + fileName + "... " + percent + "%");
+	
+							if(Math.ceil(fd.getCurrentSize() / 8192) > 260000)
+							{
+								fileChunks.add(fd.getBytes());
+								fd = new FileData(fileName, fileSize);
+							}
+							
+							fileData.set(index, fd);
+							if(bytesCount >= fileSize)
+							{
+								if(fd.getCurrentSize() > 0)
+								{
+									fileChunks.add(fd.getBytes());
+									
+									fd = new FileData(fileName, fileSize);
+									fileData.set(index, fd);
+								}
+								
+								fileNames.remove(index);
+								fileData.remove(index);
+	
+								new Thread(new Runnable()
+								{
+									@Override
+									public void run()
+									{
+										JFileChooser jfc = new JFileChooser();
+										jfc.setName(fileName);
+										
+										if(jfc.showSaveDialog(null) == JFileChooser.APPROVE_OPTION)
+										{
+											try
+											{
+												String path = jfc.getSelectedFile().getAbsolutePath();
+												FileOutputStream fos = new FileOutputStream(path);
+												
+												long wbs = 0;
+												for(byte[] bs : fileChunks)
+												{
+													fos.write(bs);
+													
+													double percent = Math.round(((double) (wbs * 100)) / ((double) fileSize) * 10.0) / 10.0;
+													lblDownloadInfo.setText("Saving... " + percent + "%");
+													wbs += bs.length;
+												}
+												
+												fos.close();
+											}
+											catch (Exception e) {}
+										}
+										
+										fileChunks.clear();
+										lblDownloadInfo.setText("No downloads are running");
+									}
+								}).start();
+							}
+	
+							received_files.remove(i);
+							i--;
 						}
-
-						received_files.remove(i);
-						i--;
 					}
 				}
 				catch(Exception e) {}
@@ -589,12 +608,15 @@ public class Client
 			{
 				try
 				{
-					if(fileStatusesToSend.size() > 0)
+					if(enableThreads)
 					{
-						for(DataPackage dp : fileStatusesToSend)
+						if(fileStatusesToSend.size() > 0)
 						{
-							oos = new ObjectOutputStream(socket_files.getOutputStream());
-							oos.writeObject(dp);
+							for(DataPackage dp : fileStatusesToSend)
+							{
+								oos = new ObjectOutputStream(socket_files.getOutputStream());
+								oos.writeObject(dp);
+							}
 						}
 					}
 				}
