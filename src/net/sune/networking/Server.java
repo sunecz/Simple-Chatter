@@ -155,6 +155,7 @@ public class Server
 		btnSendFile.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
 		btnSendFile.addActionListener(new ActionListener()
 		{
+			@Override
 			public void actionPerformed(ActionEvent e)
 			{
 				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
@@ -198,19 +199,23 @@ public class Server
 		
 		btnDisconnect.addActionListener(new ActionListener()
 		{
+			@Override
 			public void actionPerformed(ActionEvent e)
 			{
-				int selected = list_clients.getSelectedIndex();
-				
-				if(selected != -1)
+				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
 				{
-					try
+					int selected = list_clients.getSelectedIndex();
+					
+					if(selected != -1)
 					{
-						disconnect(selected);
-					}
-					catch(Exception ex)
-					{
-						JOptionPane.showMessageDialog(null, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+						try
+						{
+							disconnect(selected);
+						}
+						catch(Exception ex)
+						{
+							JOptionPane.showMessageDialog(null, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+						}
 					}
 				}
 			}
@@ -223,12 +228,30 @@ public class Server
 			{
 				if(e.getKeyCode() == KeyEvent.VK_ENTER)
 				{
-					sendMessage(txtMessage.getText());
+					if(!txtMessage.getText().trim().isEmpty())
+					{
+						sendMessage(txtMessage.getText());
+					}
 				}
 			}
 
 			@Override public void keyReleased(KeyEvent e) {}
 			@Override public void keyTyped(KeyEvent e) {}
+		});
+		
+		btnSend.addActionListener(new ActionListener()
+		{
+			@Override
+			public void actionPerformed(ActionEvent e)
+			{
+				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
+				{
+					if(!txtMessage.getText().trim().isEmpty())
+					{
+						sendMessage(txtMessage.getText());
+					}
+				}
+			}
 		});
 		
 		frame.addWindowListener(new WindowListener()
@@ -259,19 +282,25 @@ public class Server
 				{
 					InetAddress addr = InetAddress.getLocalHost();
 					srvIP = addr.getHostAddress();
-					
-					srvMessages = new ServerSocket(srvMessagesPort, 0, addr);
-					srvFiles = new ServerSocket(srvFilesPort, 0, addr);
 
-					new Thread(acceptMessages).start();
-					new Thread(acceptFiles).start();
-					
 					WindowServer(srvIP);
+					
+					try
+					{
+						srvMessages = new ServerSocket(srvMessagesPort, 0, addr);
+						srvFiles = new ServerSocket(srvFilesPort, 0, addr);
+
+						new Thread(acceptMessages).start();
+						new Thread(acceptFiles).start();
+						
+						logText("Server has been started on " + srvIP + ":" + srvMessagesPort + "!");
+					}
+					catch(Exception ex)
+					{
+						logText("Server could not be started! Port is already in use!");
+					}
 				}
-				catch(Exception e)
-				{
-					e.printStackTrace();
-				}
+				catch(Exception e) {}
 			}
 		});
 	}
@@ -478,9 +507,6 @@ public class Server
 	
 	private static ArrayList<Socket> sockets_files = new ArrayList<Socket>();
 	private static ArrayList<FileDataPackage> received_files = new ArrayList<FileDataPackage>();
-
-	private static ArrayList<FileDataPackage> filesToSend = new ArrayList<FileDataPackage>();
-	private static ArrayList<FileDataPackage> filesUserToSend = new ArrayList<FileDataPackage>();
 	
 	private static Runnable acceptFiles = new Runnable()
 	{
@@ -504,6 +530,9 @@ public class Server
 			}
 		}
 	};
+	
+	private static ArrayList<Integer> canSendFile = new ArrayList<Integer>();
+	private static int response = 0;
 	
 	private static Runnable receiveFiles = new Runnable()
 	{
@@ -537,7 +566,22 @@ public class Server
 								int val = (int) dp.getValue();
 								
 								if(val == 1)
+								{
 									canContinueSending = true;
+								}
+								else if(val == 2)
+								{
+									if(!isSendingFile)
+									{
+										canSendFile.add(i);
+									}
+									
+									response++;
+								}
+								else if(val == 3)
+								{
+									response++;
+								}
 							}
 						}
 					}
@@ -564,9 +608,6 @@ public class Server
 				{
 					for(int i = 0; i < received_files.size(); i++)
 					{
-						FileDataPackage dp = received_files.get(i);
-						sendUserFileData(dp);
-
 						received_files.remove(i);
 						i--;
 					}
@@ -577,9 +618,10 @@ public class Server
 			}
 		}
 	};
-	
+
+	private static ArrayList<File> files = new ArrayList<File>();
 	private static boolean canContinueSending = false;
-	private static boolean canSend = false;
+	private static boolean isSendingFile = false;
 	
 	private static Runnable sendFiles = new Runnable()
 	{
@@ -590,43 +632,132 @@ public class Server
 			
 			while(true)
 			{
-				if(canSend)
+				if(files.size() > 0)
 				{
-					for(int i = 0; i < sockets_files.size(); i++)
+					if(sockets_files.size() > 0)
 					{
-						try
+						for(int i = 0; i < files.size(); i++)
 						{
-							Socket socket = sockets_files.get(i);
-							int client_state = clients_states.get(i);
+							File f = files.get(i);
 							
-							if(client_state == 0)
+							byte[] buffer = new byte[8192];
+							long fileSize = f.length();
+							
+							String fileName = f.getName();
+							String fileHash = Utils.hashSHA1(Generator.genRandomString(20) + Utils.getCurrentDate());
+							
+							for(int k = 0; k < sockets_files.size(); k++)
 							{
-								if(filesToSend.size() > 0)
+								try
 								{
-									for(FileDataPackage fdp : filesToSend)
+									Socket socket = sockets_files.get(k);
+									oos = new ObjectOutputStream(socket.getOutputStream());
+									
+									FileDataPackage fdp = new FileDataPackage("Server", "0.0.0.0", fileHash, fileName, fileSize, 0);
+									DataPackage dp = new DataPackage("confirm_receive", fdp);
+									
+									oos.writeObject(dp);
+								}
+								catch(Exception ex) {}
+							}
+							
+							int to = 0;
+							while(response != sockets_files.size())
+							{
+								to++;
+								if(to == 30000)
+								{
+									break;
+								}
+								
+								Utils.sleep(1);
+							}
+							
+							isSendingFile = true;
+							
+							try
+							{
+								if(canSendFile.size() > 0)
+								{
+									FileInputStream fis = new FileInputStream(f);
+									BufferedInputStream bis = new BufferedInputStream(fis);
+		
+									int read = 0;
+									boolean close = false;
+									
+									while((read = bis.read(buffer)) != -1 && !close)
 									{
-										oos = new ObjectOutputStream(socket.getOutputStream());
-										oos.writeObject(new DataPackage("file_data", fdp));
-										canContinueSending = false;
+										byte[] bytes = new byte[read];
+										System.arraycopy(buffer, 0, bytes, 0, read);
 										
-										while(!canContinueSending)
+										FileDataPackage fdp = new FileDataPackage("Server", "0.0.0.0", fileHash, fileName, fileSize, read).SetData(bytes);
+										
+										if(sockets_files.size() > 0)
 										{
-											Utils.sleep(1);
+											for(int x = 0; x < sockets_files.size(); x++)
+											{
+												try
+												{
+													if(canSendFile.size() == 0)
+													{
+														close = true;
+														break;
+													}
+													
+													if(canSendFile.contains(x))
+													{
+														Socket socket = sockets_files.get(x);
+														int client_state = clients_states.get(x);
+														
+														if(client_state == 0)
+														{
+															oos = new ObjectOutputStream(socket.getOutputStream());
+															oos.writeObject(new DataPackage("file_data", fdp));
+															canContinueSending = false;
+															
+															int timeout = 0;
+															while(!canContinueSending)
+															{
+																timeout++;
+																if(timeout == 8000)
+																{
+																	logText("Client IP=" + socket.getLocalAddress().getHostAddress() + " has timed out!");
+																	
+																	canContinueSending = true;
+																	canSendFile.remove(new Integer(x));
+																}
+																
+																Utils.sleep(1);
+															}
+														}
+														else
+														{
+															disconnectClient(i);
+														}
+													}
+												}
+												catch(Exception ex) {}
+											}
+										}
+										else
+										{
+											break;
 										}
 									}
+									
+									bis.close();
 								}
 							}
-							else
-							{
-								disconnectClient(i);
-								i--;
-							}
+							catch(Exception e) {}
+
+							files.remove(i);
+							i--;
+							
+							response = 0;
+							canSendFile.clear();
+							isSendingFile = false;
 						}
-						catch(Exception ex) {}
 					}
-	
-					filesToSend.clear();
-					filesUserToSend.clear();
 				}
 				
 				Utils.sleep(1);
@@ -636,50 +767,9 @@ public class Server
 	
 	private static void sendFile(File f)
 	{
-		new Thread(new Runnable()
-		{
-			@Override
-			public void run()
-			{
-				byte[] buffer = new byte[8192];
-				String fileName = f.getName();
-				long fileSize = f.length();
-				
-				try
-				{
-					FileInputStream fis = new FileInputStream(f);
-					BufferedInputStream bis = new BufferedInputStream(fis);
-					
-					int read = 0;
-					canSend = false;
-					
-					while((read = bis.read(buffer)) != -1)
-					{
-						byte[] bytes = new byte[read];
-						System.arraycopy(buffer, 0, bytes, 0, read);
-						
-						FileDataPackage fdp = new FileDataPackage("Server", "0.0.0.0", fileName, fileSize, read).SetData(bytes);
-						sendFileData(fdp);
-					}
-
-					fis.close();
-					canSend = true;
-				}
-				catch(Exception e) {}
-			}
-		}).start();
+		files.add(f);
 	}
 	
-	private static void sendFileData(FileDataPackage fdp)
-	{
-		filesToSend.add(fdp);
-	}
-	
-	private static void sendUserFileData(FileDataPackage fdp)
-	{
-		filesUserToSend.add(fdp);
-	}
-
 	private static void logText(DataPackage dp)
 	{
 		String text = (String) dp.getValue();

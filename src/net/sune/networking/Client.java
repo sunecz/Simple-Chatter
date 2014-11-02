@@ -14,6 +14,7 @@ import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
+import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -76,10 +77,10 @@ public class Client
 		subPanel2.setBorder(new EmptyBorder(0, 0, 10, 0));
 		panel0.add(subPanel2, BorderLayout.NORTH);
 		GridBagLayout gbl_subPanel2 = new GridBagLayout();
-		gbl_subPanel2.columnWidths = new int[]{240, 240, 0};
-		gbl_subPanel2.rowHeights = new int[]{27, 0, 0};
-		gbl_subPanel2.columnWeights = new double[]{0.0, 0.0, Double.MIN_VALUE};
-		gbl_subPanel2.rowWeights = new double[]{0.0, 0.0, Double.MIN_VALUE};
+		gbl_subPanel2.columnWidths = new int[]{240, 0, 240, 0};
+		gbl_subPanel2.rowHeights = new int[]{27, 0, 0, 0};
+		gbl_subPanel2.columnWeights = new double[]{0.0, 1.0, 0.0, Double.MIN_VALUE};
+		gbl_subPanel2.rowWeights = new double[]{0.0, 1.0, 0.0, Double.MIN_VALUE};
 		subPanel2.setLayout(gbl_subPanel2);
 		
 		btnDisconnect = new JButton("Disconnect");
@@ -94,6 +95,8 @@ public class Client
 					{
 						socket_messages.close();
 						socket_files.close();
+						
+						logText("Client has been disconnected from server " + srvIP + ":" + srvMessagesPort + "!");
 					}
 					catch(Exception ex) {}
 				}
@@ -103,6 +106,7 @@ public class Client
 		btnConnect = new JButton("Connect");
 		btnConnect.addActionListener(new ActionListener()
 		{
+			@Override
 			public void actionPerformed(ActionEvent e)
 			{
 				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
@@ -148,14 +152,16 @@ public class Client
 		GridBagConstraints gbc_btnDisconnect = new GridBagConstraints();
 		gbc_btnDisconnect.insets = new Insets(0, 0, 5, 0);
 		gbc_btnDisconnect.fill = GridBagConstraints.BOTH;
-		gbc_btnDisconnect.gridx = 1;
+		gbc_btnDisconnect.gridx = 2;
 		gbc_btnDisconnect.gridy = 0;
 		subPanel2.add(btnDisconnect, gbc_btnDisconnect);
 		
 		lblDownloadInfo = new JLabel("No downloads are running");
 		GridBagConstraints gbc_lblDownloadInfo = new GridBagConstraints();
-		gbc_lblDownloadInfo.gridx = 1;
-		gbc_lblDownloadInfo.gridy = 1;
+		gbc_lblDownloadInfo.gridwidth = 3;
+		gbc_lblDownloadInfo.insets = new Insets(0, 0, 0, 5);
+		gbc_lblDownloadInfo.gridx = 0;
+		gbc_lblDownloadInfo.gridy = 2;
 		subPanel2.add(lblDownloadInfo, gbc_lblDownloadInfo);
 		
 		panel1 = new JPanel();
@@ -198,7 +204,10 @@ public class Client
 			{
 				if(e.getKeyCode() == KeyEvent.VK_ENTER)
 				{
-					sendMessage(txtMessage.getText());
+					if(!txtMessage.getText().trim().isEmpty())
+					{
+						sendMessage(txtMessage.getText());
+					}
 				}
 			}
 
@@ -214,11 +223,15 @@ public class Client
 		btnSend = new JButton("Send");
 		btnSend.addActionListener(new ActionListener()
 		{
+			@Override
 			public void actionPerformed(ActionEvent e)
 			{
 				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
 				{
-					sendMessage(txtMessage.getText());
+					if(!txtMessage.getText().trim().isEmpty())
+					{
+						sendMessage(txtMessage.getText());
+					}
 				}
 			}
 		});
@@ -466,6 +479,11 @@ public class Client
 							received_files.add(fdp);
 							s = 1;
 						}
+						else if(dp.getObjectName().equals("confirm_receive"))
+						{
+							confirmReceiveFileData = (FileDataPackage) dp.getValue();
+							confirmReceiveFile = true;
+						}
 						
 						sendFileStatus(s);
 					}
@@ -477,9 +495,13 @@ public class Client
 		}
 	};
 	
-	private static ArrayList<String> fileNames = new ArrayList<String>();
-	private static ArrayList<FileData> fileData = new ArrayList<FileData>();
-	private static ArrayList<byte[]> fileChunks = new ArrayList<byte[]>();
+	private static ArrayList<String> fileHashes = new ArrayList<String>();
+	private static ArrayList<String> fileBanned = new ArrayList<String>();
+	private static BufferedOutputStream fileBOS = null;
+	private static long downloaded = 0;
+	
+	private static FileDataPackage confirmReceiveFileData = null;
+	private static boolean confirmReceiveFile = false;
 	
 	private static Runnable processFiles = new Runnable()
 	{
@@ -492,92 +514,72 @@ public class Client
 				{
 					if(enableThreads)
 					{
+						if(confirmReceiveFile)
+						{
+							String fHash = confirmReceiveFileData.getFileHash();
+							String fName = confirmReceiveFileData.getFileName();
+							String fUser = confirmReceiveFileData.getUsername();
+							
+							int confirm = JOptionPane.showConfirmDialog(frame, fUser + " is sending you a file (" + fName + ").\nWould you like to accept receiving?", "Receive file", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+							if(confirm == JOptionPane.YES_OPTION)
+							{
+								JFileChooser jfc = new JFileChooser();
+								jfc.setName(fName);
+								
+								if(jfc.showSaveDialog(null) == JFileChooser.APPROVE_OPTION)
+								{
+									String path = jfc.getSelectedFile().getAbsolutePath();
+									FileOutputStream fos = new FileOutputStream(path);
+									
+									fileBOS = new BufferedOutputStream(fos);
+									fileHashes.add(fHash);
+									
+									sendFileStatus(2);
+								}
+								else
+								{
+									fileBanned.add(fHash);
+									sendFileStatus(3);
+								}
+							}
+							else
+							{
+								fileBanned.add(fHash);
+								sendFileStatus(3);
+							}
+							
+							confirmReceiveFileData = null;
+							confirmReceiveFile = false;
+						}
+						
 						for(int i = 0; i < received_files.size(); i++)
 						{
-							FileDataPackage data = received_files.get(i);	
-							String fileName = data.getFileName();
-							long fileSize = data.getFileSize();
+							FileDataPackage data = received_files.get(i);
+							String hash = data.getFileHash();
 							
-							if(!fileNames.contains(fileName))
+							if(!fileBanned.contains(hash))
 							{
-								fileNames.add(fileName);
-								fileData.add(new FileData(fileName, fileSize));
-							}
-							
-							int index = fileNames.indexOf(fileName);
-							FileData fd = (FileData) fileData.get(index);
-							
-							byte[] bytes = data.getBytes();
-							fd.addBytes(bytes);
-	
-							long bytesCount = fd.getCurrentSize();
-							if(fileChunks.size() > 0)
-							{
-								for(byte[] bs : fileChunks)
-								{
-									bytesCount += bs.length;
-								}
-							}
-							
-							double percent = Math.round(((double) (bytesCount * 100)) / ((double) fileSize) * 10.0) / 10.0;
-							lblDownloadInfo.setText("Downloading " + fileName + "... " + percent + "%");
-	
-							if(Math.ceil(fd.getCurrentSize() / 8192) > 260000)
-							{
-								fileChunks.add(fd.getBytes());
-								fd = new FileData(fileName, fileSize);
-							}
-							
-							fileData.set(index, fd);
-							if(bytesCount >= fileSize)
-							{
-								if(fd.getCurrentSize() > 0)
-								{
-									fileChunks.add(fd.getBytes());
-									
-									fd = new FileData(fileName, fileSize);
-									fileData.set(index, fd);
-								}
+								String fileName = data.getFileName();
+								long fileSize = data.getFileSize();
+								int index = fileHashes.indexOf(hash);
+								byte[] bytes = data.getBytes();
 								
-								fileNames.remove(index);
-								fileData.remove(index);
-	
-								new Thread(new Runnable()
+								fileBOS.write(bytes);
+								downloaded += bytes.length;
+								
+								double percent = Math.round(((double) (downloaded * 100)) / ((double) fileSize) * 10.0) / 10.0;
+								lblDownloadInfo.setText("Downloading " + fileName + "... " + percent + "%");
+
+								if(downloaded >= fileSize)
 								{
-									@Override
-									public void run()
-									{
-										JFileChooser jfc = new JFileChooser();
-										jfc.setName(fileName);
-										
-										if(jfc.showSaveDialog(null) == JFileChooser.APPROVE_OPTION)
-										{
-											try
-											{
-												String path = jfc.getSelectedFile().getAbsolutePath();
-												FileOutputStream fos = new FileOutputStream(path);
-												
-												long wbs = 0;
-												for(byte[] bs : fileChunks)
-												{
-													fos.write(bs);
-													
-													double percent = Math.round(((double) (wbs * 100)) / ((double) fileSize) * 10.0) / 10.0;
-													lblDownloadInfo.setText("Saving... " + percent + "%");
-													wbs += bs.length;
-												}
-												
-												fos.close();
-											}
-											catch (Exception e) {}
-										}
-										
-										fileChunks.clear();
-										lblDownloadInfo.setText("No downloads are running");
-									}
-								}).start();
+									fileHashes.remove(index);
+									lblDownloadInfo.setText("No downloads are running");
+									
+									downloaded = 0;
+									fileBOS.close();
+								}
 							}
-	
+							
 							received_files.remove(i);
 							i--;
 						}

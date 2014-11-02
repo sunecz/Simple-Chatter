@@ -9,16 +9,18 @@ public class FileDataPackage implements Serializable
 	private String time;
 	private String ip;
 	
+	private String fileHash;
 	private String fileName;
 	private long fileSize;
 	
 	private byte[] bytes;
 	
-	public FileDataPackage(String username, String ip, String fileName, long fileSize, int bytesCount)
+	public FileDataPackage(String username, String ip, String fileHash, String fileName, long fileSize, int bytesCount)
 	{
 		this.username = username;
 		this.ip = ip;
 		
+		this.fileHash = fileHash;
 		this.fileName = fileName;
 		this.fileSize = fileSize;
 		
@@ -34,6 +36,11 @@ public class FileDataPackage implements Serializable
 	public byte[] getBytes()
 	{
 		return this.bytes;
+	}
+	
+	public String getFileHash()
+	{
+		return this.fileHash;
 	}
 
 	public String getFileName()
