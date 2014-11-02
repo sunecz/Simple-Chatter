@@ -28,7 +28,6 @@ import java.util.ArrayList;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
-import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -151,7 +150,7 @@ public class Server
 		panel0.add(lblConsole, gbc_lblConsole);
 		contentPane.add(panel1, BorderLayout.SOUTH);
 		
-		btnSendFile = new JButton("Send file");
+		btnSendFile = new JButton("Send files");
 		btnSendFile.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
 		btnSendFile.addActionListener(new ActionListener()
 		{
@@ -160,14 +159,7 @@ public class Server
 			{
 				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
 				{
-					JFileChooser fc = new JFileChooser();
-					fc.setMultiSelectionEnabled(false);
-					
-					if(fc.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION)
-					{
-						File f = fc.getSelectedFile();
-						sendFile(f);
-					}
+					new FileSelector();
 				}
 			}
 		});
@@ -765,7 +757,7 @@ public class Server
 		}
 	};
 	
-	private static void sendFile(File f)
+	public static void sendFile(File f)
 	{
 		files.add(f);
 	}
