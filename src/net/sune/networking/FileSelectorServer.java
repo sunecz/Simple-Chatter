@@ -23,7 +23,7 @@ import javax.swing.JTable;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 
-public class FileSelector
+public class FileSelectorServer
 {
 	private JFrame frame;
 	private JPanel contentPane;
@@ -45,7 +45,7 @@ public class FileSelector
 	/**
 	 * @wbp.parser.entryPoint
 	 */
-	public FileSelector()
+	public FileSelectorServer()
 	{
 		frame = new JFrame();
 		frame.setTitle("Send files");

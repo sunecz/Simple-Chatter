@@ -14,7 +14,10 @@ import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
+import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -53,6 +56,8 @@ public class Client
 	private static JButton btnDisconnect;
 	private static JButton btnConnect;
 	private static JLabel lblDownloadInfo;
+	private static JButton btnSendFiles;
+	private static JPanel panel;
 	
 	private static void WindowClient(String ip)
 	{
@@ -93,10 +98,7 @@ public class Client
 				{
 					try
 					{
-						socket_messages.close();
-						socket_files.close();
-						
-						logText("Client has been disconnected from server " + srvIP + ":" + srvMessagesPort + "!");
+						disconnect();
 					}
 					catch(Exception ex) {}
 				}
@@ -111,16 +113,16 @@ public class Client
 			{
 				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
 				{
-					String strIP = JOptionPane.showInputDialog(frame, "Insert server IP", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
+					String strIP = JOptionPane.showInputDialog(frame, "Server IP", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
 					
 					if(strIP != null && !strIP.isEmpty())
 					{
-						String strPort = JOptionPane.showInputDialog(frame, "Insert server port", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
+						String strPort = JOptionPane.showInputDialog(frame, "Server PORT", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
 
 						if(strPort != null && !strPort.isEmpty())
 						{
 							int intPort = Integer.parseInt(strPort);
-							String strPort2 = JOptionPane.showInputDialog(frame, "Insert server port2", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
+							String strPort2 = JOptionPane.showInputDialog(frame, "Server PORT2", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
 
 							if(strPort2 != null && !strPort2.isEmpty())
 							{
@@ -239,6 +241,36 @@ public class Client
 		subPanel1.add(btnSend);
 		btnSend.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
 		
+		panel = new JPanel();
+		panel.setBorder(new EmptyBorder(5, 0, 0, 0));
+		panel2.add(panel, BorderLayout.SOUTH);
+		GridBagLayout gbl_panel = new GridBagLayout();
+		gbl_panel.columnWidths = new int[] {480, 0};
+		gbl_panel.rowHeights = new int[]{23, 0};
+		gbl_panel.columnWeights = new double[]{0.0, Double.MIN_VALUE};
+		gbl_panel.rowWeights = new double[]{0.0, Double.MIN_VALUE};
+		panel.setLayout(gbl_panel);
+		
+		btnSendFiles = new JButton("Send files");
+		btnSendFiles.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
+		btnSendFiles.addActionListener(new ActionListener()
+		{
+			@Override
+			public void actionPerformed(ActionEvent e)
+			{
+				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
+				{
+					new FileSelectorClient();
+				}
+			}
+		});
+		
+		GridBagConstraints gbc_btnSendFiles = new GridBagConstraints();
+		gbc_btnSendFiles.anchor = GridBagConstraints.NORTHWEST;
+		gbc_btnSendFiles.gridx = 0;
+		gbc_btnSendFiles.gridy = 0;
+		panel.add(btnSendFiles, gbc_btnSendFiles);
+		
 		frame.setVisible(true);
 
 		frame.addWindowListener(new WindowListener()
@@ -339,6 +371,7 @@ public class Client
 	private static Socket socket_messages;
 	private static Socket socket_files;
 
+	private static int client_state = 0;
 	private static String username = "Unknown";
 	
 	private static ArrayList<DataPackage> received_messages = new ArrayList<DataPackage>();
@@ -390,14 +423,21 @@ public class Client
 							{
 								int receive_state = (int) data.getValue();
 								
+								switch(receive_state)
+								{
+									case 1:	JOptionPane.showMessageDialog(null, "You have been disconnected by the server!", "Disconnected", JOptionPane.INFORMATION_MESSAGE);	break;
+									case 2: JOptionPane.showMessageDialog(null, "Server has been shut down!", "Disconnected", JOptionPane.INFORMATION_MESSAGE);	break;
+								}
+
 								if(receive_state != 0)
 								{
-									JOptionPane.showMessageDialog(null, "You have been disconnected!", "Disconnected", JOptionPane.INFORMATION_MESSAGE);
-									System.exit(0);
+									received_messages.clear();
+									disconnect();
 								}
+								
+								client_state = receive_state;
 							}
-							
-							if(data.getObjectName().equals("message"))
+							else if(data.getObjectName().equals("message"))
 							{
 								logText(data);
 							}
@@ -484,7 +524,7 @@ public class Client
 							confirmReceiveFileData = (FileDataPackage) dp.getValue();
 							confirmReceiveFile = true;
 						}
-						
+
 						sendFileStatus(s);
 					}
 				}
@@ -592,11 +632,44 @@ public class Client
 		}
 	};
 	
+	private static ArrayList<File> files = new ArrayList<File>();
+
 	private static Runnable sendFiles = new Runnable()
 	{
 		@Override
 		public void run()
-		{
+		{			
+			new Thread(new Runnable()
+			{
+				@Override
+				public void run()
+				{
+					ObjectOutputStream oos;
+					
+					while(true)
+					{
+						try
+						{
+							if(enableThreads)
+							{
+								if(fileStatusesToSend.size() > 0)
+								{
+									for(DataPackage dp : fileStatusesToSend)
+									{
+										oos = new ObjectOutputStream(socket_files.getOutputStream());
+										oos.writeObject(dp);
+									}
+								}
+							}
+						}
+						catch(Exception ex) {}
+						
+						fileStatusesToSend.clear();
+						Utils.sleep(1);
+					}
+				}
+			}).start();
+			
 			ObjectOutputStream oos;
 			
 			while(true)
@@ -605,23 +678,69 @@ public class Client
 				{
 					if(enableThreads)
 					{
-						if(fileStatusesToSend.size() > 0)
+						if(files.size() > 0)
 						{
-							for(DataPackage dp : fileStatusesToSend)
+							for(int i = 0; i < files.size(); i++)
 							{
-								oos = new ObjectOutputStream(socket_files.getOutputStream());
-								oos.writeObject(dp);
+								File f = files.get(i);
+								
+								byte[] buffer = new byte[8192];
+								long fileSize = f.length();
+								
+								String fileName = f.getName();
+								String fileHash = Utils.hashSHA1(Generator.genRandomString(20) + Utils.getCurrentDate());
+								
+								try
+								{
+									FileInputStream fis = new FileInputStream(f);
+									BufferedInputStream bis = new BufferedInputStream(fis);
+		
+									int read = 0;
+									boolean close = false;
+									
+									while((read = bis.read(buffer)) != -1 && !close)
+									{
+										byte[] bytes = new byte[read];
+										System.arraycopy(buffer, 0, bytes, 0, read);
+										
+										FileDataPackage fdp = new FileDataPackage(username, srvIP, fileHash, fileName, fileSize, read).SetData(bytes);
+										
+										try
+										{
+											if(client_state == 0)
+											{
+												oos = new ObjectOutputStream(socket_files.getOutputStream());
+												oos.writeObject(new DataPackage("user_file_data", fdp));
+											}
+											else
+											{
+												disconnect();
+											}
+										}
+										catch(Exception ex) {}
+									}
+									
+									bis.close();
+								}
+								catch(Exception e) {}
+
+								files.remove(i);
+								i--;
 							}
 						}
 					}
 				}
 				catch(Exception e) {}
 
-				fileStatusesToSend.clear();
 				Utils.sleep(1);
 			}
 		}
 	};
+	
+	public static void sendFile(File f)
+	{
+		files.add(f);
+	}
 	
 	private static void sendFileStatus(int s)
 	{
@@ -647,5 +766,17 @@ public class Client
 
 		JScrollBar vertical = scrollPane.getVerticalScrollBar();
 		vertical.setValue(vertical.getMaximum());
+	}
+	
+	private static void disconnect()
+	{
+		try
+		{
+			socket_messages.close();
+			socket_files.close();
+		
+			logText("Client has been disconnected from server " + srvIP + ":" + srvMessagesPort + "!");
+		}
+		catch(Exception ex) {}
 	}
 }

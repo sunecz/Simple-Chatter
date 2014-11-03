@@ -65,7 +65,7 @@ public class Server
 	private static JPanel subPanel2;
 	private static JButton btnSend;
 	private static JLabel lblConsole;
-	private static JButton btnSendFile;
+	private static JButton btnSendFiles;
 
 	private static void WindowServer(String ip)
 	{
@@ -150,21 +150,21 @@ public class Server
 		panel0.add(lblConsole, gbc_lblConsole);
 		contentPane.add(panel1, BorderLayout.SOUTH);
 		
-		btnSendFile = new JButton("Send files");
-		btnSendFile.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
-		btnSendFile.addActionListener(new ActionListener()
+		btnSendFiles = new JButton("Send files");
+		btnSendFiles.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
+		btnSendFiles.addActionListener(new ActionListener()
 		{
 			@Override
 			public void actionPerformed(ActionEvent e)
 			{
 				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
 				{
-					new FileSelector();
+					new FileSelectorServer();
 				}
 			}
 		});
 		
-		panel1.add(btnSendFile, BorderLayout.WEST);
+		panel1.add(btnSendFiles, BorderLayout.WEST);
 		
 		frame.setContentPane(contentPane);
 
@@ -544,12 +544,7 @@ public class Server
 						ois = new ObjectInputStream(socket.getInputStream());
 						Object o = ois.readObject();
 						
-						if(o instanceof FileDataPackage)
-						{
-							FileDataPackage fdp = (FileDataPackage) o;
-							received_files.add(fdp);
-						}
-						else if(o instanceof DataPackage)
+						if(o instanceof DataPackage)
 						{
 							DataPackage dp = (DataPackage) o;
 							
@@ -574,6 +569,11 @@ public class Server
 								{
 									response++;
 								}
+							}
+							else if(dp.getObjectName().equals("user_file_data"))
+							{
+								FileDataPackage fdp = (FileDataPackage) dp.getValue();
+								received_files.add(fdp);
 							}
 						}
 					}
@@ -600,6 +600,9 @@ public class Server
 				{
 					for(int i = 0; i < received_files.size(); i++)
 					{
+						FileDataPackage fdp = received_files.get(i);
+						logText("received " + fdp.getBytes().length + " bytes");
+
 						received_files.remove(i);
 						i--;
 					}
@@ -623,7 +626,7 @@ public class Server
 			ObjectOutputStream oos;
 			
 			while(true)
-			{
+			{				
 				if(files.size() > 0)
 				{
 					if(sockets_files.size() > 0)
