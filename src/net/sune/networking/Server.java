@@ -370,7 +370,9 @@ public class Server
 				{
 					try
 					{
-						ois = new ObjectInputStream(sockets_messages.get(i).getInputStream());
+						Socket socket = sockets_messages.get(i);
+						
+						ois = new ObjectInputStream(socket.getInputStream());
 						DataPackage dp = (DataPackage) ois.readObject();
 						
 						received_messages.add(dp);
@@ -468,6 +470,8 @@ public class Server
 								{
 									oos = new ObjectOutputStream(socket.getOutputStream());
 									oos.writeObject(new DataPackage("message", msg.getContent(), msg.getUsername(), msg.getIP()));
+									
+									logText(msg.getContent(), msg.getUsername());
 								}
 							}
 						}

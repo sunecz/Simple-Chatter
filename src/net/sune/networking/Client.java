@@ -291,7 +291,6 @@ public class Client
 			username = System.getProperty("user.name");
 			
 			WindowClient(localIP);
-			//connectToServer(localIP, srvMessagesPort, srvFilesPort);
 			connectToServerDialog();
 			
 			new Thread(receiveMessages).start();
@@ -485,10 +484,15 @@ public class Client
 					{
 						if(messagesToSend.size() > 0)
 						{
-							for(Message msg : messagesToSend)
+							for(int i = 0; i < messagesToSend.size(); i++)
 							{
+								Message msg = messagesToSend.get(i);
+								
 								oos = new ObjectOutputStream(socket_messages.getOutputStream());
 								oos.writeObject(new DataPackage("message", msg.getContent(), msg.getUsername(), msg.getIP()));
+								
+								messagesToSend.remove(i);
+								i--;
 							}
 	
 							txtMessage.setText("");
@@ -496,8 +500,7 @@ public class Client
 					}
 				}
 				catch(Exception e) {}
-
-				messagesToSend.clear();
+				
 				Utils.sleep(1);
 			}
 		}
