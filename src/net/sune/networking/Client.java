@@ -99,31 +99,7 @@ public class Client
 			{
 				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
 				{
-					String strIP = JOptionPane.showInputDialog(frame, "Server IP", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
-					
-					if(strIP != null && !strIP.isEmpty())
-					{
-						String strPort = JOptionPane.showInputDialog(frame, "Server PORT", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
-
-						if(strPort != null && !strPort.isEmpty())
-						{
-							int intPort = Integer.parseInt(strPort);
-							String strPort2 = JOptionPane.showInputDialog(frame, "Server PORT2", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
-
-							if(strPort2 != null && !strPort2.isEmpty())
-							{
-								int intPort2 = Integer.parseInt(strPort2);
-
-								new Thread(new Runnable()
-								{
-									public void run()
-									{
-										connectToServer(strIP, intPort, intPort2);
-									}
-								}).start();						
-							}					
-						}
-					}
+					connectToServerDialog();
 				}
 			}
 		});
@@ -315,7 +291,8 @@ public class Client
 			username = System.getProperty("user.name");
 			
 			WindowClient(localIP);
-			connectToServer(localIP, srvMessagesPort, srvFilesPort);
+			//connectToServer(localIP, srvMessagesPort, srvFilesPort);
+			connectToServerDialog();
 			
 			new Thread(receiveMessages).start();
 			new Thread(sendMessages).start();
@@ -340,18 +317,18 @@ public class Client
 			
 			enableThreads = false;
 			logText("Connecting to " + serverIP + ":" + serverPort + "...");
-			
-			InetSocketAddress sa_messages = new InetSocketAddress(serverIP, serverPort);
-			socket_messages = new Socket();
-			socket_messages.connect(sa_messages, 8000);
-			
-			InetSocketAddress sa_files = new InetSocketAddress(serverIP, serverPort2);
-			socket_files = new Socket();
-			socket_files.connect(sa_files, 8000);
-			
+
 			srvIP = serverIP;
 			srvMessagesPort = serverPort;
 			srvFilesPort = serverPort2;
+			
+			InetSocketAddress sa_messages = new InetSocketAddress(srvIP, srvMessagesPort);
+			socket_messages = new Socket();
+			socket_messages.connect(sa_messages, 8000);
+			
+			InetSocketAddress sa_files = new InetSocketAddress(srvIP, srvFilesPort);
+			socket_files = new Socket();
+			socket_files.connect(sa_files, 8000);
 			
 			ObjectOutputStream oos = new ObjectOutputStream(socket_messages.getOutputStream());
 			oos.writeObject(new DataPackage("username", username));
@@ -369,6 +346,35 @@ public class Client
 		catch(Exception ex)
 		{
 			logText("Cannot connect to the server!");
+		}
+	}
+	
+	private static void connectToServerDialog()
+	{
+		String strIP = JOptionPane.showInputDialog(frame, "Server IP", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
+		
+		if(strIP != null && !strIP.isEmpty())
+		{
+			String strPort = JOptionPane.showInputDialog(frame, "Server PORT", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
+
+			if(strPort != null && !strPort.isEmpty())
+			{
+				int intPort = Integer.parseInt(strPort);
+				String strPort2 = JOptionPane.showInputDialog(frame, "Server PORT2", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
+
+				if(strPort2 != null && !strPort2.isEmpty())
+				{
+					int intPort2 = Integer.parseInt(strPort2);
+
+					new Thread(new Runnable()
+					{
+						public void run()
+						{
+							connectToServer(strIP, intPort, intPort2);
+						}
+					}).start();						
+				}					
+			}
 		}
 	}
 	
