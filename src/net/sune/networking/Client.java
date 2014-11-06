@@ -62,12 +62,12 @@ public class Client
 	private static JPanel subPanel3;
 	private static JProgressBar prgbarDownload;
 	
-	private static void WindowClient(String ip)
+	private static void WindowClient(String ip, int port)
 	{
 		frame = new JFrame();
 		frame.setResizable(false);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		frame.setTitle("Client - " + ip);
+		frame.setTitle("Client - " + ip + ":" + port);
 		frame.setSize(506, 442);
 		frame.setLocationRelativeTo(null);
 		frame.getContentPane().setLayout(new BorderLayout(0, 0));
@@ -290,7 +290,7 @@ public class Client
 			localIP = InetAddress.getLocalHost().getHostAddress();
 			username = System.getProperty("user.name");
 			
-			WindowClient(localIP);
+			WindowClient(localIP, srvMessagesPort);
 			connectToServerDialog();
 			
 			new Thread(receiveMessages).start();
@@ -430,35 +430,37 @@ public class Client
 				{
 					if(enableThreads)
 					{
-						for(int i = 0; i < received_messages.size(); i++)
+						if(received_messages.size() > 0)
 						{
-							DataPackage data = received_messages.get(i);
-							
-							if(data.getObjectName().equals("client_state"))
+							for(DataPackage data : received_messages)
 							{
-								int receive_state = (int) data.getValue();
-								
-								switch(receive_state)
+								if(data.getObjectName().equals("client_state"))
 								{
-									case 1:	JOptionPane.showMessageDialog(null, "You have been disconnected by the server!", "Disconnected", JOptionPane.INFORMATION_MESSAGE);	break;
-									case 2: JOptionPane.showMessageDialog(null, "Server has been shut down!", "Disconnected", JOptionPane.INFORMATION_MESSAGE);	break;
+									int receive_state = (int) data.getValue();
+									
+									switch(receive_state)
+									{
+										case 1:	JOptionPane.showMessageDialog(null, "You have been disconnected by the server!", "Disconnected", JOptionPane.INFORMATION_MESSAGE);	break;
+										case 2: JOptionPane.showMessageDialog(null, "Server has been shut down!", "Disconnected", JOptionPane.INFORMATION_MESSAGE);	break;
+									}
+	
+									if(receive_state != 0)
+									{
+										received_messages.clear();
+										disconnect();
+										
+										break;
+									}
+									
+									client_state = receive_state;
 								}
-
-								if(receive_state != 0)
+								else if(data.getObjectName().equals("message"))
 								{
-									received_messages.clear();
-									disconnect();
+									logText((Message) data.getValue());
 								}
-								
-								client_state = receive_state;
 							}
-							else if(data.getObjectName().equals("message"))
-							{
-								logText((Message) data.getValue());
-							}
-							
-							received_messages.remove(i);
-							i--;
+						
+							received_messages.clear();
 						}
 					}
 				}
@@ -484,17 +486,13 @@ public class Client
 					{
 						if(messagesToSend.size() > 0)
 						{
-							for(int i = 0; i < messagesToSend.size(); i++)
+							for(Message msg : messagesToSend)
 							{
-								Message msg = messagesToSend.get(i);
-								
 								oos = new ObjectOutputStream(socket_messages.getOutputStream());
 								oos.writeObject(new DataPackage("message", msg, msg.getUsername(), msg.getIP()));
-								
-								messagesToSend.remove(i);
-								i--;
 							}
 	
+							messagesToSend.clear();
 							txtMessage.setText("");
 						}
 					}

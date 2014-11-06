@@ -67,10 +67,10 @@ public class Server
 	private static JLabel lblConsole;
 	private static JButton btnSendFiles;
 
-	private static void WindowServer(String ip)
+	private static void WindowServer(String ip, int port)
 	{
 		frame = new JFrame();
-		frame.setTitle("Server - " + ip);
+		frame.setTitle("Server - " + ip + ":" + port);
 		frame.setResizable(false);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frame.setBounds(100, 100, 730, 430);
@@ -276,7 +276,7 @@ public class Server
 					InetAddress addr = InetAddress.getLocalHost();
 					srvIP = addr.getHostAddress();
 
-					WindowServer(srvIP);
+					WindowServer(srvIP, srvMessagesPort);
 					
 					try
 					{
@@ -366,23 +366,24 @@ public class Server
 			
 			while(true)
 			{
-				for(int i = 0; i < sockets_messages.size(); i++)
+				try
 				{
-					try
+					if(sockets_messages.size() > 0)
 					{
-						Socket socket = sockets_messages.get(i);
-						
-						ois = new ObjectInputStream(socket.getInputStream());
-						DataPackage dp = (DataPackage) ois.readObject();
-						
-						received_messages.add(dp);
-					}
-					catch(Exception ex)
-					{
-						disconnectClient(i);
-						i--;
+						for(Socket socket : sockets_messages)
+						{
+							ois = new ObjectInputStream(socket.getInputStream());
+							Object obj = ois.readObject();
+							
+							if(obj instanceof DataPackage)
+							{
+								DataPackage dp = (DataPackage) obj;
+								received_messages.add(dp);
+							}
+						}
 					}
 				}
+				catch(Exception ex) {}
 				
 				Utils.sleep(1);
 			}
@@ -398,34 +399,23 @@ public class Server
 			{
 				try
 				{
-					for(int i = 0; i < received_messages.size(); i++)
+					if(received_messages.size() > 0)
 					{
-						DataPackage dp = received_messages.get(i);
-						
-						if(dp.getObjectName().equals("client_state"))
+						for(DataPackage dp : received_messages)
 						{
-							int receive_state = (int) dp.getValue();
-							
-							if(receive_state != 0)
+							if(dp.getObjectName().equals("message"))
 							{
-								disconnectClient(i);
-								i--;
+								Message msg = (Message) dp.getValue();
+								
+								logText(msg);
+								sendUserMessage(dp);
 							}
 						}
-						
-						if(dp.getObjectName().equals("message"))
-						{
-							Message msg = (Message) dp.getValue();
-							
-							logText(msg);
-							sendUserMessage(dp);
-						}
-						
-						received_messages.remove(i);
-						i--;
+
+						received_messages.clear();
 					}
 				}
-				catch(Exception e) {}
+				catch(Exception ex) {}
 
 				Utils.sleep(1);
 			}
@@ -441,51 +431,48 @@ public class Server
 			
 			while(true)
 			{
-				for(int i = 0; i < sockets_messages.size(); i++)
+				if(messagesToSend.size() > 0)
 				{
-					try
-					{					
-						Socket socket = sockets_messages.get(i);
-						oos = new ObjectOutputStream(socket.getOutputStream());
-						
-						int client_state = clients_states.get(i);
-						oos.writeObject(new DataPackage("client_state", client_state));
-						
-						if(client_state == 0)
+					for(Message msg : messagesToSend)
+					{
+						for(int x = 0; x < sockets_messages.size(); x++)
 						{
-							if(messagesToSend.size() > 0)
+							try
 							{
-								for(Message msg : messagesToSend)
-								{
-									oos = new ObjectOutputStream(socket.getOutputStream());
-									oos.writeObject(new DataPackage("message", msg));
-									
-									logText(msg.getContent(), "Server");
-								}
-
-								txtMessage.setText("");
+								Socket socket = sockets_messages.get(x);
+								
+								oos = new ObjectOutputStream(socket.getOutputStream());
+								oos.writeObject(new DataPackage("message", msg));						
 							}
-							
-							if(messagesUserToSend.size() > 0)
-							{
-								for(Message msg : messagesUserToSend)
-								{
-									oos = new ObjectOutputStream(socket.getOutputStream());
-									oos.writeObject(new DataPackage("message", msg, msg.getUsername(), msg.getIP()));
-								}
-							}
+							catch(Exception ex) {}
 						}
-						else
+						
+						logText(msg.getContent(), "Server");
+					}
+
+					txtMessage.setText("");
+					messagesToSend.clear();
+				}
+				
+				if(messagesUserToSend.size() > 0)
+				{
+					for(Message msg : messagesUserToSend)
+					{
+						for(int x = 0; x < sockets_messages.size(); x++)
 						{
-							disconnectClient(i);
-							i--;
+							try
+							{
+								Socket socket = sockets_messages.get(x);
+								
+								oos = new ObjectOutputStream(socket.getOutputStream());
+								oos.writeObject(new DataPackage("message", msg, msg.getUsername(), msg.getIP()));
+							}
+							catch(Exception ex) {}
 						}
 					}
-					catch(Exception ex) {}
+					
+					messagesUserToSend.clear();
 				}
-
-				messagesToSend.clear();
-				messagesUserToSend.clear();
 				
 				Utils.sleep(1);
 			}
