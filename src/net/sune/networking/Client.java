@@ -33,12 +33,12 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JProgressBar;
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.border.EmptyBorder;
-import javax.swing.JProgressBar;
 
 public class Client
 {
@@ -454,7 +454,7 @@ public class Client
 							}
 							else if(data.getObjectName().equals("message"))
 							{
-								logText(data);
+								logText((Message) data.getValue());
 							}
 							
 							received_messages.remove(i);
@@ -489,7 +489,7 @@ public class Client
 								Message msg = messagesToSend.get(i);
 								
 								oos = new ObjectOutputStream(socket_messages.getOutputStream());
-								oos.writeObject(new DataPackage("message", msg.getContent(), msg.getUsername(), msg.getIP()));
+								oos.writeObject(new DataPackage("message", msg, msg.getUsername(), msg.getIP()));
 								
 								messagesToSend.remove(i);
 								i--;
@@ -753,6 +753,18 @@ public class Client
 		String text = (String) dp.getValue();
 		String time = dp.getTime();
 		String user = dp.getUsername();
+		
+		textArea.append("[" + user + " - " + time + "]: " + text + "\n");
+
+		JScrollBar vertical = scrollPane.getVerticalScrollBar();
+		vertical.setValue(vertical.getMaximum());
+	}
+	
+	private static void logText(Message msg)
+	{
+		String text = msg.getContent();
+		String time = msg.getTime();
+		String user = msg.getUsername();
 		
 		textArea.append("[" + user + " - " + time + "]: " + text + "\n");
 

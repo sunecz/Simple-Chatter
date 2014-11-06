@@ -1,6 +1,9 @@
 package net.sune.networking;
 
-public class Message
+import java.io.Serializable;
+
+@SuppressWarnings("serial")
+public class Message implements Serializable
 {
 	private String username;
 	private String time;

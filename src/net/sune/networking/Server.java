@@ -415,7 +415,9 @@ public class Server
 						
 						if(dp.getObjectName().equals("message"))
 						{
-							logText(dp);
+							Message msg = (Message) dp.getValue();
+							
+							logText(msg);
 							sendUserMessage(dp);
 						}
 						
@@ -456,7 +458,7 @@ public class Server
 								for(Message msg : messagesToSend)
 								{
 									oos = new ObjectOutputStream(socket.getOutputStream());
-									oos.writeObject(new DataPackage("message", msg.getContent()));
+									oos.writeObject(new DataPackage("message", msg));
 									
 									logText(msg.getContent(), "Server");
 								}
@@ -469,9 +471,7 @@ public class Server
 								for(Message msg : messagesUserToSend)
 								{
 									oos = new ObjectOutputStream(socket.getOutputStream());
-									oos.writeObject(new DataPackage("message", msg.getContent(), msg.getUsername(), msg.getIP()));
-									
-									logText(msg.getContent(), msg.getUsername());
+									oos.writeObject(new DataPackage("message", msg, msg.getUsername(), msg.getIP()));
 								}
 							}
 						}
@@ -499,7 +499,7 @@ public class Server
 	
 	private static void sendUserMessage(DataPackage dp)
 	{
-		messagesUserToSend.add(new Message(dp.getUsername(), dp.getTime(), (String) dp.getValue(), dp.getIP()));
+		messagesUserToSend.add((Message) dp.getValue());
 	}
 	
 	private static ArrayList<Socket> sockets_files = new ArrayList<Socket>();
@@ -906,12 +906,12 @@ public class Server
 	{
 		files.add(f);
 	}
-	
-	private static void logText(DataPackage dp)
+
+	private static void logText(Message msg)
 	{
-		String text = (String) dp.getValue();
-		String time = dp.getTime();
-		String user = dp.getUsername();
+		String text = msg.getContent();
+		String time = msg.getTime();
+		String user = msg.getUsername();
 		
 		textArea.append("[" + user + " - " + time + "]: " + text + "\n");
 
