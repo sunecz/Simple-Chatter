@@ -38,6 +38,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.border.EmptyBorder;
+import javax.swing.JProgressBar;
 
 public class Client
 {
@@ -58,6 +59,8 @@ public class Client
 	private static JLabel lblDownloadInfo;
 	private static JButton btnSendFiles;
 	private static JPanel panel;
+	private static JPanel subPanel3;
+	private static JProgressBar prgbarDownload;
 	
 	private static void WindowClient(String ip)
 	{
@@ -82,28 +85,11 @@ public class Client
 		subPanel2.setBorder(new EmptyBorder(0, 0, 10, 0));
 		panel0.add(subPanel2, BorderLayout.NORTH);
 		GridBagLayout gbl_subPanel2 = new GridBagLayout();
-		gbl_subPanel2.columnWidths = new int[]{240, 0, 240, 0};
-		gbl_subPanel2.rowHeights = new int[]{27, 0, 0, 0};
-		gbl_subPanel2.columnWeights = new double[]{0.0, 1.0, 0.0, Double.MIN_VALUE};
-		gbl_subPanel2.rowWeights = new double[]{0.0, 1.0, 0.0, Double.MIN_VALUE};
+		gbl_subPanel2.columnWidths = new int[]{160, 160, 0};
+		gbl_subPanel2.rowHeights = new int[]{27, 0, 0};
+		gbl_subPanel2.columnWeights = new double[]{1.0, 1.0, Double.MIN_VALUE};
+		gbl_subPanel2.rowWeights = new double[]{0.0, 0.0, Double.MIN_VALUE};
 		subPanel2.setLayout(gbl_subPanel2);
-		
-		btnDisconnect = new JButton("Disconnect");
-		btnDisconnect.addActionListener(new ActionListener()
-		{
-			@Override
-			public void actionPerformed(ActionEvent e)
-			{
-				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
-				{
-					try
-					{
-						disconnect();
-					}
-					catch(Exception ex) {}
-				}
-			}
-		});
 		
 		btnConnect = new JButton("Connect");
 		btnConnect.addActionListener(new ActionListener()
@@ -150,21 +136,45 @@ public class Client
 		gbc_btnConnect.gridy = 0;
 		subPanel2.add(btnConnect, gbc_btnConnect);
 		
+		btnDisconnect = new JButton("Disconnect");
+		btnDisconnect.addActionListener(new ActionListener()
+		{
+			@Override
+			public void actionPerformed(ActionEvent e)
+			{
+				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
+				{
+					try
+					{
+						disconnect();
+					}
+					catch(Exception ex) {}
+				}
+			}
+		});
+		
 		btnDisconnect.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
 		GridBagConstraints gbc_btnDisconnect = new GridBagConstraints();
-		gbc_btnDisconnect.insets = new Insets(0, 0, 5, 0);
 		gbc_btnDisconnect.fill = GridBagConstraints.BOTH;
-		gbc_btnDisconnect.gridx = 2;
+		gbc_btnDisconnect.insets = new Insets(0, 0, 5, 0);
+		gbc_btnDisconnect.gridx = 1;
 		gbc_btnDisconnect.gridy = 0;
 		subPanel2.add(btnDisconnect, gbc_btnDisconnect);
 		
+		subPanel3 = new JPanel();
+		GridBagConstraints gbc_subPanel3 = new GridBagConstraints();
+		gbc_subPanel3.gridwidth = 2;
+		gbc_subPanel3.fill = GridBagConstraints.BOTH;
+		gbc_subPanel3.gridx = 0;
+		gbc_subPanel3.gridy = 1;
+		subPanel2.add(subPanel3, gbc_subPanel3);
+		subPanel3.setLayout(new BorderLayout(0, 0));
+		
 		lblDownloadInfo = new JLabel("No downloads are running");
-		GridBagConstraints gbc_lblDownloadInfo = new GridBagConstraints();
-		gbc_lblDownloadInfo.gridwidth = 3;
-		gbc_lblDownloadInfo.insets = new Insets(0, 0, 0, 5);
-		gbc_lblDownloadInfo.gridx = 0;
-		gbc_lblDownloadInfo.gridy = 2;
-		subPanel2.add(lblDownloadInfo, gbc_lblDownloadInfo);
+		subPanel3.add(lblDownloadInfo, BorderLayout.WEST);
+		
+		prgbarDownload = new JProgressBar();
+		subPanel3.add(prgbarDownload, BorderLayout.SOUTH);
 		
 		panel1 = new JPanel();
 		panel1.setBorder(new EmptyBorder(3, 10, 10, 10));
@@ -609,11 +619,13 @@ public class Client
 								
 								double percent = Math.round(((double) (downloaded * 100)) / ((double) fileSize) * 10.0) / 10.0;
 								lblDownloadInfo.setText("Downloading " + fileName + "... " + percent + "%");
+								prgbarDownload.setValue((int) Math.round(percent));
 
 								if(downloaded >= fileSize)
 								{
 									fileHashes.remove(index);
 									lblDownloadInfo.setText("No downloads are running");
+									prgbarDownload.setValue(0);
 									
 									downloaded = 0;
 									fileBOS.close();
@@ -639,37 +651,6 @@ public class Client
 		@Override
 		public void run()
 		{			
-			new Thread(new Runnable()
-			{
-				@Override
-				public void run()
-				{
-					ObjectOutputStream oos;
-					
-					while(true)
-					{
-						try
-						{
-							if(enableThreads)
-							{
-								if(fileStatusesToSend.size() > 0)
-								{
-									for(DataPackage dp : fileStatusesToSend)
-									{
-										oos = new ObjectOutputStream(socket_files.getOutputStream());
-										oos.writeObject(dp);
-									}
-								}
-							}
-						}
-						catch(Exception ex) {}
-						
-						fileStatusesToSend.clear();
-						Utils.sleep(1);
-					}
-				}
-			}).start();
-			
 			ObjectOutputStream oos;
 			
 			while(true)
@@ -678,6 +659,17 @@ public class Client
 				{
 					if(enableThreads)
 					{
+						if(fileStatusesToSend.size() > 0)
+						{
+							for(DataPackage dp : fileStatusesToSend)
+							{
+								oos = new ObjectOutputStream(socket_files.getOutputStream());
+								oos.writeObject(dp);
+							}
+						}
+						
+						fileStatusesToSend.clear();
+						
 						if(files.size() > 0)
 						{
 							for(int i = 0; i < files.size(); i++)
@@ -736,7 +728,7 @@ public class Client
 			}
 		}
 	};
-	
+
 	public static void sendFile(File f)
 	{
 		files.add(f);

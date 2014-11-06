@@ -169,12 +169,13 @@ public class Server
 		frame.setContentPane(contentPane);
 
 		panel2 = new JPanel();
+		panel2.setBorder(new EmptyBorder(0, 5, 0, 0));
 		contentPane.add(panel2, BorderLayout.EAST);
 		panel2.setLayout(new GridLayout(0, 1, 0, 0));
 		
 		scrollPane = new JScrollPane();
 		panel2.add(scrollPane);
-		scrollPane.setBorder(new EmptyBorder(0, 5, 0, 0));
+		scrollPane.setBorder(BorderFactory.createLineBorder(Color.black, 1));
 		scrollPane.setLayout(new ScrollPaneLayout());
 		scrollPane.setViewportView(textArea);
 		
@@ -185,7 +186,7 @@ public class Server
 		textArea.setColumns(50);
 		textArea.setFont(new Font("Consolas", Font.PLAIN, 12));
 		textArea.setEditable(false);
-		textArea.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(5, 5, 5, 5)));
+		textArea.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 		
 		frame.setVisible(true);
 		
@@ -601,7 +602,7 @@ public class Server
 					for(int i = 0; i < received_files.size(); i++)
 					{
 						FileDataPackage fdp = received_files.get(i);
-						logText("received " + fdp.getBytes().length + " bytes");
+						filesBytes.add(fdp);
 
 						received_files.remove(i);
 						i--;
@@ -615,6 +616,10 @@ public class Server
 	};
 
 	private static ArrayList<File> files = new ArrayList<File>();
+	private static ArrayList<FileDataPackage> filesBytes = new ArrayList<FileDataPackage>();
+	private static ArrayList<String> fileBytesHashes = new ArrayList<String>();
+	private static ArrayList<Object[]> fileTemp = new ArrayList<Object[]>();
+	
 	private static boolean canContinueSending = false;
 	private static boolean isSendingFile = false;
 	
@@ -627,9 +632,142 @@ public class Server
 			
 			while(true)
 			{				
-				if(files.size() > 0)
+				if(sockets_files.size() > 0)
 				{
-					if(sockets_files.size() > 0)
+					for(int i = 0; i < filesBytes.size(); i++)
+					{
+						try
+						{
+							FileDataPackage fdp = filesBytes.get(i);
+							
+							String fileHash = fdp.getFileHash();
+							String fileName = fdp.getFileName();
+							
+							long fileSize = fdp.getFileSize();
+							int sentBytes = fdp.getBytes().length;
+							
+							if(!fileBytesHashes.contains(fileHash))
+							{
+								if(sockets_files.size() > 1)
+								{
+									for(int k = 0; k < sockets_files.size(); k++)
+									{
+										try
+										{
+											Socket socket = sockets_files.get(k);
+											
+											if(!socket.getInetAddress().getHostAddress().equals(fdp.getIP()))
+											{
+												oos = new ObjectOutputStream(socket.getOutputStream());
+												
+												FileDataPackage fdp0 = new FileDataPackage("Server", "0.0.0.0", fileHash, fileName, fileSize, 0);
+												DataPackage dp = new DataPackage("confirm_receive", fdp0);
+												
+												oos.writeObject(dp);
+											}
+										}
+										catch(Exception ex) {}
+									}
+									
+									int to = 0;
+									while(response != (sockets_files.size() - 1))
+									{
+										to++;
+										if(to == 30000)
+										{
+											break;
+										}
+										
+										Utils.sleep(1);
+									}
+									
+									isSendingFile = true;									
+									
+									fileBytesHashes.add(fileHash);
+									fileTemp.add(new Object[] {fileHash, sentBytes});
+								}
+							}
+							
+							if(sockets_files.size() > 1)
+							{
+								for(int x = 0; x < sockets_files.size(); x++)
+								{
+									try
+									{
+										Socket socket = sockets_files.get(x);
+										int client_state = clients_states.get(x);
+
+										if(client_state == 0 && !socket.getInetAddress().getHostAddress().equals(fdp.getIP()) && fileBytesHashes.contains(fileHash))
+										{
+											oos = new ObjectOutputStream(socket.getOutputStream());
+											oos.writeObject(new DataPackage("file_data", fdp));
+											canContinueSending = false;
+											
+											int timeout = 0;
+											while(!canContinueSending)
+											{
+												timeout++;
+												if(timeout == 8000)
+												{
+													logText("Client IP=" + socket.getLocalAddress().getHostAddress() + " has timed out!");
+													
+													canContinueSending = true;
+													canSendFile.remove(new Integer(x));
+												}
+												
+												Utils.sleep(1);
+											}
+										}
+										else
+										{
+											disconnectClient(i);
+										}
+									}
+									catch(Exception ex) {}
+								}
+							}
+							else
+							{
+								break;
+							}
+							
+							long allBytes = 0;
+							int index = -1;
+							
+							for(Object[] o : fileTemp)
+							{
+								String fh = (String) o[0];
+								index++;
+								
+								if(fh.equals(fileHash))
+								{
+									allBytes = (long) o[1];
+									break;
+								}
+							}
+							
+							allBytes += sentBytes;
+							fileTemp.set(index, new Object[] {fileHash, allBytes});
+							
+							if(allBytes >= fdp.getFileSize())
+							{
+								if(index > -1)
+								{
+									fileBytesHashes.remove(index);
+									fileTemp.remove(index);
+								}
+								
+								response = 0;
+								isSendingFile = false;
+							}
+						}
+						catch(Exception ex) {}
+						
+						filesBytes.remove(i);
+						i--;
+					}
+					
+					if(files.size() > 0)
 					{
 						for(int i = 0; i < files.size(); i++)
 						{
