@@ -402,17 +402,17 @@ public class Client
 			
 			while(true)
 			{
-				try
+				if(enableThreads)
 				{
-					if(enableThreads)
+					try
 					{
 						ois = new ObjectInputStream(socket_messages.getInputStream());
 						DataPackage dp = (DataPackage) ois.readObject();
 						
 						received_messages.add(dp);
-					}	
-				}
-				catch(Exception e) {}
+					}
+					catch(Exception e) {}
+				}	
 
 				Utils.sleep(1);
 			}
@@ -426,13 +426,13 @@ public class Client
 		{
 			while(true)
 			{
-				try
+				if(enableThreads)
 				{
-					if(enableThreads)
+					if(received_messages.size() > 0)
 					{
-						if(received_messages.size() > 0)
+						for(DataPackage data : received_messages)
 						{
-							for(DataPackage data : received_messages)
+							try
 							{
 								if(data.getObjectName().equals("client_state"))
 								{
@@ -459,12 +459,12 @@ public class Client
 									logText((Message) data.getValue());
 								}
 							}
-						
-							received_messages.clear();
+							catch(Exception e) {}
 						}
+					
+						received_messages.clear();
 					}
 				}
-				catch(Exception e) {}
 
 				Utils.sleep(1);
 			}
@@ -480,25 +480,25 @@ public class Client
 			
 			while(true)
 			{
-				try
+				if(enableThreads)
 				{
-					if(enableThreads)
+					if(messagesToSend.size() > 0)
 					{
-						if(messagesToSend.size() > 0)
+						for(Message msg : messagesToSend)
 						{
-							for(Message msg : messagesToSend)
+							try
 							{
 								oos = new ObjectOutputStream(socket_messages.getOutputStream());
 								oos.writeObject(new DataPackage("message", msg, msg.getUsername(), msg.getIP()));
 							}
-	
-							messagesToSend.clear();
-							txtMessage.setText("");
+							catch(Exception e) {}
 						}
+
+						messagesToSend.clear();
+						txtMessage.setText("");
 					}
 				}
-				catch(Exception e) {}
-				
+
 				Utils.sleep(1);
 			}
 		}
@@ -522,9 +522,9 @@ public class Client
 			
 			while(true)
 			{
-				try
+				if(enableThreads)
 				{
-					if(enableThreads)
+					try
 					{
 						ois = new ObjectInputStream(socket_files.getInputStream());
 						DataPackage dp = (DataPackage) ois.readObject();
@@ -544,9 +544,9 @@ public class Client
 
 						sendFileStatus(s);
 					}
+					catch(Exception e) {}
 				}
-				catch(Exception e) {}
-
+				
 				Utils.sleep(1);
 			}
 		}
@@ -567,9 +567,9 @@ public class Client
 		{
 			while(true)
 			{
-				try
+				if(enableThreads)
 				{
-					if(enableThreads)
+					try
 					{
 						if(confirmReceiveFile)
 						{
@@ -609,43 +609,50 @@ public class Client
 							confirmReceiveFile = false;
 						}
 						
-						for(int i = 0; i < received_files.size(); i++)
+						if(received_files.size() > 0)
 						{
-							FileDataPackage data = received_files.get(i);
-							String hash = data.getFileHash();
-							
-							if(!fileBanned.contains(hash))
+							for(int i = 0; i < received_files.size(); i++)
 							{
-								String fileName = data.getFileName();
-								long fileSize = data.getFileSize();
-								int index = fileHashes.indexOf(hash);
-								byte[] bytes = data.getBytes();
-								
-								fileBOS.write(bytes);
-								downloaded += bytes.length;
-								
-								double percent = Math.round(((double) (downloaded * 100)) / ((double) fileSize) * 10.0) / 10.0;
-								lblDownloadInfo.setText("Downloading " + fileName + "... " + percent + "%");
-								prgbarDownload.setValue((int) Math.round(percent));
-
-								if(downloaded >= fileSize)
+								try
 								{
-									fileHashes.remove(index);
-									lblDownloadInfo.setText("No downloads are running");
-									prgbarDownload.setValue(0);
+									FileDataPackage data = received_files.get(i);
+									String hash = data.getFileHash();
 									
-									downloaded = 0;
-									fileBOS.close();
+									if(!fileBanned.contains(hash))
+									{
+										String fileName = data.getFileName();
+										long fileSize = data.getFileSize();
+										int index = fileHashes.indexOf(hash);
+										byte[] bytes = data.getBytes();
+										
+										fileBOS.write(bytes);
+										downloaded += bytes.length;
+										
+										double percent = Math.round(((double) (downloaded * 100)) / ((double) fileSize) * 10.0) / 10.0;
+										lblDownloadInfo.setText("Downloading " + fileName + "... " + percent + "%");
+										prgbarDownload.setValue((int) Math.round(percent));
+		
+										if(downloaded >= fileSize)
+										{
+											fileHashes.remove(index);
+											lblDownloadInfo.setText("No downloads are running");
+											prgbarDownload.setValue(0);
+											
+											downloaded = 0;
+											fileBOS.close();
+										}
+									}
+									
+									received_files.remove(i);
+									i--;
 								}
+								catch(Exception ex) {}
 							}
-							
-							received_files.remove(i);
-							i--;
 						}
 					}
+					catch(Exception e) {}
 				}
-				catch(Exception e) {}
-
+					
 				Utils.sleep(1);
 			}
 		}
@@ -662,24 +669,28 @@ public class Client
 			
 			while(true)
 			{
-				try
+				if(enableThreads)
 				{
-					if(enableThreads)
+					if(fileStatusesToSend.size() > 0)
 					{
-						if(fileStatusesToSend.size() > 0)
+						for(DataPackage dp : fileStatusesToSend)
 						{
-							for(DataPackage dp : fileStatusesToSend)
+							try
 							{
 								oos = new ObjectOutputStream(socket_files.getOutputStream());
 								oos.writeObject(dp);
 							}
+							catch(Exception e) {}
 						}
 						
 						fileStatusesToSend.clear();
-						
-						if(files.size() > 0)
+					}
+
+					if(files.size() > 0)
+					{
+						for(int i = 0; i < files.size(); i++)
 						{
-							for(int i = 0; i < files.size(); i++)
+							try
 							{
 								File f = files.get(i);
 								
@@ -726,10 +737,10 @@ public class Client
 								files.remove(i);
 								i--;
 							}
+							catch(Exception e) {}
 						}
 					}
 				}
-				catch(Exception e) {}
 
 				Utils.sleep(1);
 			}
