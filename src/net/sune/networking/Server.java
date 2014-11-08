@@ -955,6 +955,7 @@ public class Server
 		{
 			Socket socket = sockets_messages.get(index);
 			String client_ip = socket.getInetAddress().getHostAddress();
+			String username = clients_usernames.get(index);
 			
 			clients_states.remove(index);
 			clients_usernames.remove(index);
@@ -962,7 +963,7 @@ public class Server
 			sockets_files.remove(index);
 
 			list_clients_model.removeElementAt(index);
-			logText("Client with IP=" + client_ip + " has been disconnected!");
+			logText(username + " with IP " + client_ip + " has been disconnected!");
 		}
 		catch(Exception ex) {}
 	}
