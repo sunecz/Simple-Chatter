@@ -50,18 +50,15 @@ public class Server
 	private static JPanel panel1;
 	private static JPanel subPanel0;
 	private static JPanel subPanel1;
-	
 	private static JList<String> list_clients;
 	private static DefaultListModel<String> list_clients_model;
 	private static JButton btnDisconnect;
 	private static JLabel lblConnectedClients;
-	
 	private static JTextField txtMessage;
 	private static JScrollPane scrollPane;
 	private static JTextArea textArea;
 	private static JPanel panelList;
 	private static JPanel panel2;
-	
 	private static JPanel subPanel2;
 	private static JButton btnSend;
 	private static JLabel lblConsole;
@@ -284,8 +281,11 @@ public class Server
 						srvFiles = new ServerSocket(srvFilesPort, 0, addr);
 
 						new Thread(acceptMessages).start();
-						new Thread(acceptFiles).start();
-						
+						new Thread(processMessages).start();
+						new Thread(sendMessages).start();
+						new Thread(processFiles).start();
+						new Thread(sendFiles).start();
+
 						logText("Server has been started on " + srvIP + ":" + srvMessagesPort + "!");
 					}
 					catch(Exception ex)
@@ -306,45 +306,42 @@ public class Server
 	private static ServerSocket srvMessages;
 	private static ServerSocket srvFiles;
 	
-	private static ArrayList<Socket> sockets_messages = new ArrayList<Socket>();
-	private static ArrayList<String> clients_usernames = new ArrayList<String>();
-	private static ArrayList<Integer> clients_states = new ArrayList<Integer>();
-	private static ArrayList<DataPackage> received_messages = new ArrayList<DataPackage>();
+	private static ArrayList<ClientThread> clients = new ArrayList<ClientThread>();
 	
 	private static ArrayList<Message> messagesToSend = new ArrayList<Message>();
 	private static ArrayList<Message> messagesUserToSend = new ArrayList<Message>();
-	
+
 	private static Runnable acceptMessages = new Runnable()
 	{
 		@Override
 		public void run()
 		{
-			new Thread(receiveMessages).start();
-			new Thread(processMessages).start();
-			new Thread(sendMessages).start();
-			
 			while(true)
 			{
 				try
 				{
-					Socket socket = srvMessages.accept();
-					
-					InetAddress addr = socket.getInetAddress();
+					Socket socket0 = srvMessages.accept();
+					Socket socket1 = srvFiles.accept();
+
+					InetAddress addr = socket0.getInetAddress();
 					String clientAddr = addr.getHostAddress();
 					String clientName = addr.getHostName();
-					
 					boolean validSocket = true;
-					for(Socket s : sockets_messages)
+					
+					if(clients.size() > 0)
 					{
-						if(s.getInetAddress().getHostAddress().equals(clientAddr))
+						for(ClientThread client : clients)
 						{
-							validSocket = false;
+							if(client.getIP().equals(clientAddr))
+							{
+								validSocket = false;
+							}
 						}
 					}
 					
 					if(validSocket)
 					{
-						ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
+						ObjectInputStream ois = new ObjectInputStream(socket0.getInputStream());
 						DataPackage dp = (DataPackage) ois.readObject();
 						
 						String username = "";
@@ -353,19 +350,17 @@ public class Server
 							username = (String) dp.getValue();
 						}
 
-						ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
+						ObjectOutputStream oos = new ObjectOutputStream(socket0.getOutputStream());
 						oos.writeObject(new DataPackage("message", "Welcome to the server, " + username + "!"));
-						sendMessage(username + " with IP " + socket.getInetAddress().getHostAddress() + " connected to the server!");
 
+						clients.add(new ClientThread(socket0, socket1, clientAddr, clientName));
 						list_clients_model.addElement(username + " - " + clientAddr + " - " + clientName);
 
-						clients_states.add(0);
-						clients_usernames.add(username);
-						sockets_messages.add(socket);						
+						sendMessage(username + " with IP " + clientAddr + " connected to the server!");
 					}
 					else
 					{
-						ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
+						ObjectOutputStream oos = new ObjectOutputStream(socket0.getOutputStream());
 						oos.writeObject(new DataPackage("message", "Client is not valid or is already connected!"));
 					}
 				}
@@ -375,40 +370,7 @@ public class Server
 			}
 		}
 	};
-	
-	private static Runnable receiveMessages = new Runnable()
-	{
-		@Override
-		public void run()
-		{
-			ObjectInputStream ois;
-			
-			while(true)
-			{
-				if(sockets_messages.size() > 0)
-				{
-					for(Socket socket : sockets_messages)
-					{
-						try
-						{
-							ois = new ObjectInputStream(socket.getInputStream());
-							Object obj = ois.readObject();
-							
-							if(obj instanceof DataPackage)
-							{
-								DataPackage dp = (DataPackage) obj;
-								received_messages.add(dp);
-							}
-						}
-						catch(Exception ex) {}
-					}
-				}
-					
-				Utils.sleep(1);
-			}
-		}
-	};
-	
+
 	private static Runnable processMessages = new Runnable()
 	{
 		@Override
@@ -416,26 +378,41 @@ public class Server
 		{
 			while(true)
 			{
-				if(received_messages.size() > 0)
+				for(int i = 0; i < clients.size(); i++)
 				{
-					for(DataPackage dp : received_messages)
+					ClientThread client = clients.get(i);
+					
+					if(client.getClientState() == 0)
 					{
-						try
+						ArrayList<DataPackage> messages = client.getReceivedMessages();
+						
+						if(messages.size() > 0)
 						{
-							if(dp.getObjectName().equals("message"))
+							for(DataPackage dp : messages)
 							{
-								Message msg = (Message) dp.getValue();
-								
-								logText(msg);
-								sendUserMessage(dp);
+								try
+								{
+									if(dp.getObjectName().equals("message"))
+									{
+										Message msg = (Message) dp.getValue();
+										
+										logText(msg);
+										sendUserMessage(dp);
+									}
+								}
+								catch(Exception ex) {}
 							}
+							
+							client.clearMessages();
 						}
-						catch(Exception ex) {}
 					}
-
-					received_messages.clear();
+					else
+					{
+						disconnectClient(i);
+						i--;
+					}
 				}
-
+					
 				Utils.sleep(1);
 			}
 		}
@@ -446,29 +423,19 @@ public class Server
 		@Override
 		public void run()
 		{
-			ObjectOutputStream oos;
-			
 			while(true)
 			{
 				if(messagesToSend.size() > 0)
 				{
 					for(Message msg : messagesToSend)
 					{
-						for(int x = 0; x < sockets_messages.size(); x++)
+						for(ClientThread client : clients)
 						{
-							try
-							{
-								Socket socket = sockets_messages.get(x);
-								
-								oos = new ObjectOutputStream(socket.getOutputStream());
-								oos.writeObject(new DataPackage("message", msg));						
-							}
-							catch(Exception ex) {}
+							client.addMessage(msg);
+							logText(msg);
 						}
-						
-						logText(msg.getContent(), "Server");
 					}
-
+					
 					txtMessage.setText("");
 					messagesToSend.clear();
 				}
@@ -477,16 +444,9 @@ public class Server
 				{
 					for(Message msg : messagesUserToSend)
 					{
-						for(int x = 0; x < sockets_messages.size(); x++)
+						for(ClientThread client : clients)
 						{
-							try
-							{
-								Socket socket = sockets_messages.get(x);
-								
-								oos = new ObjectOutputStream(socket.getOutputStream());
-								oos.writeObject(new DataPackage("message", msg, msg.getUsername(), msg.getIP()));
-							}
-							catch(Exception ex) {}
+							client.addMessage(msg);
 						}
 					}
 					
@@ -507,60 +467,36 @@ public class Server
 	{
 		messagesUserToSend.add((Message) dp.getValue());
 	}
-	
-	private static ArrayList<Socket> sockets_files = new ArrayList<Socket>();
-	private static ArrayList<FileDataPackage> received_files = new ArrayList<FileDataPackage>();
-	
-	private static Runnable acceptFiles = new Runnable()
-	{
-		@Override
-		public void run()
-		{
-			new Thread(receiveFiles).start();
-			new Thread(processFiles).start();
-			new Thread(sendFiles).start();
-			
-			while(true)
-			{
-				try
-				{
-					Socket socket = srvFiles.accept();
-					sockets_files.add(socket);
-				}
-				catch(Exception ex) {}
-				
-				Utils.sleep(1);
-			}
-		}
-	};
-	
+
 	private static ArrayList<Integer> canSendFile = new ArrayList<Integer>();
+	private static ArrayList<File> files = new ArrayList<File>();
+	private static ArrayList<FileDataPackage> filesBytes = new ArrayList<FileDataPackage>();
+	private static ArrayList<String> fileBytesHashes = new ArrayList<String>();
+	private static ArrayList<Object[]> fileTemp = new ArrayList<Object[]>();
+	
+	private static boolean canContinueSending = false;
+	private static boolean isSendingFile = false;
 	private static int response = 0;
 	
-	private static Runnable receiveFiles = new Runnable()
+	private static Runnable processFiles = new Runnable()
 	{
 		@Override
 		public void run()
 		{
-			ObjectInputStream ois;
-			
 			while(true)
 			{
-				if(sockets_files.size() > 0)
+				int counter = 0;
+				
+				for(ClientThread client : clients)
 				{
-					for(int i = 0; i < sockets_files.size(); i++)
+					ArrayList<DataPackage> files = client.getReceivedFiles();
+					
+					if(files.size() > 0)
 					{
-						try
+						for(DataPackage dp : files)
 						{
-							Socket socket = sockets_files.get(i);
-							
-							ois = new ObjectInputStream(socket.getInputStream());
-							Object o = ois.readObject();
-							
-							if(o instanceof DataPackage)
+							try
 							{
-								DataPackage dp = (DataPackage) o;
-								
 								if(dp.getObjectName().equals("receive_file_data"))
 								{
 									int val = (int) dp.getValue();
@@ -573,7 +509,7 @@ public class Server
 									{
 										if(!isSendingFile)
 										{
-											canSendFile.add(i);
+											canSendFile.add(counter);
 										}
 										
 										response++;
@@ -586,76 +522,36 @@ public class Server
 								else if(dp.getObjectName().equals("user_file_data"))
 								{
 									FileDataPackage fdp = (FileDataPackage) dp.getValue();
-									received_files.add(fdp);
+									filesBytes.add(fdp);
 								}
 							}
+							catch(Exception ex) {}
 						}
-						catch(Exception ex)
-						{
-							disconnectClient(i);
-							i--;
-						}
+						
+						client.clearFiles();
 					}
+					
+					counter++;
 				}
-				
+					
 				Utils.sleep(1);
 			}
 		}
 	};
-	
-	private static Runnable processFiles = new Runnable()
+
+	private static Runnable sendFiles = new Runnable()
 	{
 		@Override
 		public void run()
 		{
 			while(true)
 			{
-				if(received_files.size() > 0)
+				if(filesBytes.size() > 0)
 				{
-					for(int i = 0; i < received_files.size(); i++)
+					for(FileDataPackage fdp : filesBytes)
 					{
 						try
 						{
-							FileDataPackage fdp = received_files.get(i);
-							filesBytes.add(fdp);
-		
-							received_files.remove(i);
-							i--;
-						}
-						catch(Exception e) {}
-					}
-				}
-			
-				Utils.sleep(1);
-			}
-		}
-	};
-
-	private static ArrayList<File> files = new ArrayList<File>();
-	private static ArrayList<FileDataPackage> filesBytes = new ArrayList<FileDataPackage>();
-	private static ArrayList<String> fileBytesHashes = new ArrayList<String>();
-	private static ArrayList<Object[]> fileTemp = new ArrayList<Object[]>();
-	
-	private static boolean canContinueSending = false;
-	private static boolean isSendingFile = false;
-	
-	private static Runnable sendFiles = new Runnable()
-	{
-		@Override
-		public void run()
-		{
-			ObjectOutputStream oos;
-			
-			while(true)
-			{				
-				if(sockets_files.size() > 0)
-				{
-					for(int i = 0; i < filesBytes.size(); i++)
-					{
-						try
-						{
-							FileDataPackage fdp = filesBytes.get(i);
-							
 							String fileHash = fdp.getFileHash();
 							String fileName = fdp.getFileName();
 							
@@ -664,29 +560,23 @@ public class Server
 							
 							if(!fileBytesHashes.contains(fileHash))
 							{
-								if(sockets_files.size() > 1)
+								if(clients.size() > 1)
 								{
-									for(int k = 0; k < sockets_files.size(); k++)
+									for(ClientThread client : clients)
 									{
 										try
 										{
-											Socket socket = sockets_files.get(k);
-											
-											if(!socket.getInetAddress().getHostAddress().equals(fdp.getIP()))
+											if(!client.getIP().equals(fdp.getIP()))
 											{
-												oos = new ObjectOutputStream(socket.getOutputStream());
-												
-												FileDataPackage fdp0 = new FileDataPackage("Server", srvIP, fileHash, fileName, fileSize, 0);
-												DataPackage dp = new DataPackage("confirm_receive", fdp0);
-												
-												oos.writeObject(dp);
+												DataPackage dp = new DataPackage("confirm_receive", new FileDataPackage("Server", srvIP, fileHash, fileName, fileSize, 0));
+												client.addDataPackage(dp);
 											}
 										}
 										catch(Exception ex) {}
 									}
 									
 									int to = 0;
-									while(response != (sockets_files.size() - 1))
+									while(response != (clients.size() - 1))
 									{
 										to++;
 										if(to == 30000)
@@ -704,19 +594,17 @@ public class Server
 								}
 							}
 							
-							if(sockets_files.size() > 1)
+							if(clients.size() > 1)
 							{
-								for(int x = 0; x < sockets_files.size(); x++)
+								for(int x = 0; x < clients.size(); x++)
 								{
 									try
 									{
-										Socket socket = sockets_files.get(x);
-										int client_state = clients_states.get(x);
-
-										if(client_state == 0 && !socket.getInetAddress().getHostAddress().equals(fdp.getIP()) && fileBytesHashes.contains(fileHash))
+										ClientThread client = clients.get(x);
+										
+										if(client.getClientState() == 0 && !client.getIP().equals(fdp.getIP()) && fileBytesHashes.contains(fileHash))
 										{
-											oos = new ObjectOutputStream(socket.getOutputStream());
-											oos.writeObject(new DataPackage("file_data", fdp));
+											client.addDataPackage(new DataPackage("file_data", fdp));
 											canContinueSending = false;
 											
 											int timeout = 0;
@@ -725,7 +613,7 @@ public class Server
 												timeout++;
 												if(timeout == 8000)
 												{
-													logText("Client IP=" + socket.getLocalAddress().getHostAddress() + " has timed out!");
+													logText(client.getUsername() + " IP " + client.getIP() + " has timed out!");
 													
 													canContinueSending = true;
 													canSendFile.remove(new Integer(x));
@@ -736,7 +624,8 @@ public class Server
 										}
 										else
 										{
-											disconnectClient(i);
+											disconnectClient(x);
+											x--;
 										}
 									}
 									catch(Exception ex) {}
@@ -778,139 +667,128 @@ public class Server
 							}
 						}
 						catch(Exception ex) {}
-						
-						filesBytes.remove(i);
-						i--;
 					}
 					
-					if(files.size() > 0)
+					filesBytes.clear();
+				}
+				
+				if(files.size() > 0)
+				{
+					for(File f : files)
 					{
-						for(int i = 0; i < files.size(); i++)
+						try
 						{
-							try
+							byte[] buffer = new byte[8192];
+							long fileSize = f.length();
+							
+							String fileName = f.getName();
+							String fileHash = Utils.hashSHA1(Generator.genRandomString(20) + Utils.getCurrentDate());
+							
+							for(ClientThread client : clients)
 							{
-								File f = files.get(i);
-								
-								byte[] buffer = new byte[8192];
-								long fileSize = f.length();
-								
-								String fileName = f.getName();
-								String fileHash = Utils.hashSHA1(Generator.genRandomString(20) + Utils.getCurrentDate());
-								
-								for(int k = 0; k < sockets_files.size(); k++)
-								{
-									try
-									{
-										Socket socket = sockets_files.get(k);
-										oos = new ObjectOutputStream(socket.getOutputStream());
-										
-										FileDataPackage fdp = new FileDataPackage("Server", srvIP, fileHash, fileName, fileSize, 0);
-										DataPackage dp = new DataPackage("confirm_receive", fdp);
-										
-										oos.writeObject(dp);
-									}
-									catch(Exception ex) {}
-								}
-								
-								int to = 0;
-								while(response != sockets_files.size())
-								{
-									to++;
-									if(to == 30000)
-									{
-										break;
-									}
-									
-									Utils.sleep(1);
-								}
-								
-								isSendingFile = true;
-								
 								try
 								{
-									if(canSendFile.size() > 0)
+									DataPackage dp = new DataPackage("confirm_receive", new FileDataPackage("Server", srvIP, fileHash, fileName, fileSize, 0));
+									client.addDataPackage(dp);
+								}
+								catch(Exception ex) {}
+							}
+							
+							int to = 0;
+							while(response != clients.size())
+							{
+								to++;
+								if(to == 30000)
+								{
+									break;
+								}
+								
+								Utils.sleep(1);
+							}
+							
+							isSendingFile = true;
+							
+							try
+							{
+								if(canSendFile.size() > 0)
+								{
+									FileInputStream fis = new FileInputStream(f);
+									BufferedInputStream bis = new BufferedInputStream(fis);
+		
+									int read = 0;
+									boolean close = false;
+									
+									while((read = bis.read(buffer)) != -1 && !close)
 									{
-										FileInputStream fis = new FileInputStream(f);
-										BufferedInputStream bis = new BufferedInputStream(fis);
-			
-										int read = 0;
-										boolean close = false;
+										byte[] bytes = new byte[read];
+										System.arraycopy(buffer, 0, bytes, 0, read);
 										
-										while((read = bis.read(buffer)) != -1 && !close)
+										FileDataPackage fdp = new FileDataPackage("Server", srvIP, fileHash, fileName, fileSize, read).SetData(bytes);
+										
+										if(clients.size() > 0)
 										{
-											byte[] bytes = new byte[read];
-											System.arraycopy(buffer, 0, bytes, 0, read);
-											
-											FileDataPackage fdp = new FileDataPackage("Server", srvIP, fileHash, fileName, fileSize, read).SetData(bytes);
-											
-											if(sockets_files.size() > 0)
+											for(int x = 0; x < clients.size(); x++)
 											{
-												for(int x = 0; x < sockets_files.size(); x++)
-												{
-													try
+												try
+												{													
+													if(canSendFile.size() == 0)
 													{
-														if(canSendFile.size() == 0)
+														close = true;
+														break;
+													}
+													
+													if(canSendFile.contains(x))
+													{
+														ClientThread client = clients.get(x);
+
+														if(client.getClientState() == 0)
 														{
-															close = true;
-															break;
-														}
-														
-														if(canSendFile.contains(x))
-														{
-															Socket socket = sockets_files.get(x);
-															int client_state = clients_states.get(x);
+															client.addDataPackage(new DataPackage("file_data", fdp));
+															canContinueSending = false;
 															
-															if(client_state == 0)
+															int timeout = 0;
+															while(!canContinueSending)
 															{
-																oos = new ObjectOutputStream(socket.getOutputStream());
-																oos.writeObject(new DataPackage("file_data", fdp));
-																canContinueSending = false;
-																
-																int timeout = 0;
-																while(!canContinueSending)
+																timeout++;
+																if(timeout == 8000)
 																{
-																	timeout++;
-																	if(timeout == 8000)
-																	{
-																		logText("Client IP=" + socket.getLocalAddress().getHostAddress() + " has timed out!");
-																		
-																		canContinueSending = true;
-																		canSendFile.remove(new Integer(x));
-																	}
+																	logText(client.getUsername() + " IP=" + client.getIP() + " has timed out!");
 																	
-																	Utils.sleep(1);
+																	canContinueSending = true;
+																	canSendFile.remove(new Integer(x));
 																}
+																
+																Utils.sleep(1);
 															}
-															else
-															{
-																disconnectClient(i);
-															}
+														}
+														else
+														{
+															disconnectClient(x);
 														}
 													}
-													catch(Exception ex) {}
 												}
-											}
-											else
-											{
-												break;
+												catch(Exception ex) {}
 											}
 										}
-										
-										bis.close();
+										else
+										{
+											break;
+										}
 									}
+									
+									bis.close();
 								}
-								catch(Exception e) {}
 							}
-							catch(Exception ex) {}
-							
-							files.remove(i);
-							i--;
-							
-							response = 0;
-							canSendFile.clear();
-							isSendingFile = false;
+							catch(Exception e) {}
 						}
+						catch(Exception ex) {}
+						
+						response = 0;
+						canSendFile.clear();
+						isSendingFile = false;
 					}
+					
+					files.clear();
 				}
 				
 				Utils.sleep(1);
@@ -953,16 +831,14 @@ public class Server
 	{
 		try
 		{
-			Socket socket = sockets_messages.get(index);
-			String client_ip = socket.getInetAddress().getHostAddress();
-			String username = clients_usernames.get(index);
+			ClientThread client = clients.get(index);
+			String client_ip = client.getIP();
+			String username = client.getUsername();
+			client.setClientState(1);
 			
-			clients_states.remove(index);
-			clients_usernames.remove(index);
-			sockets_messages.remove(index);
-			sockets_files.remove(index);
-
+			clients.remove(index);
 			list_clients_model.removeElementAt(index);
+			
 			logText(username + " with IP " + client_ip + " has been disconnected!");
 		}
 		catch(Exception ex) {}
@@ -970,18 +846,15 @@ public class Server
 	
 	private static void disconnect(int index)
 	{
-		clients_states.set(index, 1);
+		disconnectClient(index);
 	}
 	
 	private static void shutdown()
 	{
-		for(int i = 0; i < clients_states.size(); i++)
+		for(int i = 0; i < clients.size(); i++)
 		{
-			try
-			{
-				clients_states.set(i, 2);
-			}
-			catch(Exception ex) {}
+			ClientThread client = clients.get(i);
+			client.setClientState(2);
 		}
 	}
 }

@@ -291,11 +291,15 @@ public class Client
 			username = System.getProperty("user.name");
 			
 			WindowClient(localIP, srvMessagesPort);
-			connectToServerDialog();
+			//connectToServerDialog();
+			connectToServer(localIP, srvMessagesPort, srvFilesPort);
 			
 			new Thread(receiveMessages).start();
+			new Thread(processMessages).start();
 			new Thread(sendMessages).start();
+			
 			new Thread(receiveFiles).start();
+			new Thread(processFiles).start();
 			new Thread(sendFiles).start();
 		}
 		catch(Exception e) {}
@@ -315,19 +319,18 @@ public class Client
 			}
 			
 			enableThreads = false;
+			frame.setTitle("Client " + serverIP + ":" + serverPort);
 			logText("Connecting to " + serverIP + ":" + serverPort + "...");
 
 			srvIP = serverIP;
 			srvMessagesPort = serverPort;
 			srvFilesPort = serverPort2;
-			
-			InetSocketAddress sa_messages = new InetSocketAddress(srvIP, srvMessagesPort);
+
 			socket_messages = new Socket();
-			socket_messages.connect(sa_messages, 8000);
-			
-			InetSocketAddress sa_files = new InetSocketAddress(srvIP, srvFilesPort);
+			socket_messages.connect(new InetSocketAddress(srvIP, srvMessagesPort), 8000);
+
 			socket_files = new Socket();
-			socket_files.connect(sa_files, 8000);
+			socket_files.connect(new InetSocketAddress(srvIP, srvFilesPort), 8000);
 			
 			ObjectOutputStream oos = new ObjectOutputStream(socket_messages.getOutputStream());
 			oos.writeObject(new DataPackage("username", username));
@@ -397,7 +400,6 @@ public class Client
 		@Override
 		public void run()
 		{
-			new Thread(processMessages).start();
 			ObjectInputStream ois;
 			
 			while(true)
@@ -408,7 +410,7 @@ public class Client
 					{
 						ois = new ObjectInputStream(socket_messages.getInputStream());
 						DataPackage dp = (DataPackage) ois.readObject();
-						
+
 						received_messages.add(dp);
 					}
 					catch(Exception e) {}
@@ -494,8 +496,8 @@ public class Client
 							catch(Exception e) {}
 						}
 
-						messagesToSend.clear();
 						txtMessage.setText("");
+						messagesToSend.clear();
 					}
 				}
 
@@ -511,13 +513,20 @@ public class Client
 
 	private static ArrayList<FileDataPackage> received_files = new ArrayList<FileDataPackage>();
 	private static ArrayList<DataPackage> fileStatusesToSend = new ArrayList<DataPackage>();
+	private static ArrayList<String> fileHashes = new ArrayList<String>();
+	private static ArrayList<String> fileBanned = new ArrayList<String>();
+	private static ArrayList<File> files = new ArrayList<File>();
 
+	private static FileDataPackage confirmReceiveFileData = null;
+	private static boolean confirmReceiveFile = false;
+	private static BufferedOutputStream fileBOS = null;
+	private static long downloaded = 0;
+	
 	private static Runnable receiveFiles = new Runnable()
 	{
 		@Override
 		public void run()
 		{
-			new Thread(processFiles).start();
 			ObjectInputStream ois;
 			
 			while(true)
@@ -528,7 +537,7 @@ public class Client
 					{
 						ois = new ObjectInputStream(socket_files.getInputStream());
 						DataPackage dp = (DataPackage) ois.readObject();
-						
+
 						int s = 0;
 						if(dp.getObjectName().equals("file_data"))
 						{
@@ -551,15 +560,7 @@ public class Client
 			}
 		}
 	};
-	
-	private static ArrayList<String> fileHashes = new ArrayList<String>();
-	private static ArrayList<String> fileBanned = new ArrayList<String>();
-	private static BufferedOutputStream fileBOS = null;
-	private static long downloaded = 0;
-	
-	private static FileDataPackage confirmReceiveFileData = null;
-	private static boolean confirmReceiveFile = false;
-	
+
 	private static Runnable processFiles = new Runnable()
 	{
 		@Override
@@ -657,8 +658,6 @@ public class Client
 			}
 		}
 	};
-	
-	private static ArrayList<File> files = new ArrayList<File>();
 
 	private static Runnable sendFiles = new Runnable()
 	{
@@ -794,10 +793,17 @@ public class Client
 	{
 		try
 		{
-			socket_messages.close();
-			socket_files.close();
-		
-			logText("Client has been disconnected from server " + srvIP + ":" + srvMessagesPort + "!");
+			if(!socket_messages.isClosed() && !socket_files.isClosed())
+			{
+				socket_messages.close();
+				socket_files.close();
+				
+				logText("Client has been disconnected from server " + srvIP + ":" + srvMessagesPort + "!");
+			}
+			else
+			{
+				logText("Client is alredy disconnected!");
+			}
 		}
 		catch(Exception ex) {}
 	}
