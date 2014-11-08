@@ -291,8 +291,7 @@ public class Client
 			username = System.getProperty("user.name");
 			
 			WindowClient(localIP, srvMessagesPort);
-			//connectToServerDialog();
-			connectToServer(localIP, srvMessagesPort, srvFilesPort);
+			connectToServerDialog();
 			
 			new Thread(receiveMessages).start();
 			new Thread(processMessages).start();
