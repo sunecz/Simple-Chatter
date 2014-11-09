@@ -1,9 +1,10 @@
 package net.sune.networking;
 import java.io.Serializable;
 
-@SuppressWarnings("serial")
 public class DataPackage implements Serializable
 {
+	private static final long serialVersionUID = 8L;
+	
 	private String objectName;
 	private Object object;
 	

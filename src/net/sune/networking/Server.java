@@ -16,6 +16,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.ObjectInputStream;
@@ -156,7 +157,14 @@ public class Server
 			{
 				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
 				{
-					new FileSelectorServer();
+					new FileSelector(new FileSelectorActions()
+					{
+						@Override
+						public void Send(File f)
+						{
+							Server.sendFile(f);
+						}
+					});
 				}
 			}
 		});
@@ -341,7 +349,7 @@ public class Server
 					
 					if(validSocket)
 					{
-						ObjectInputStream ois = new ObjectInputStream(socket0.getInputStream());
+						ObjectInputStream ois = new ObjectInputStream(new BufferedInputStream(socket0.getInputStream()));
 						DataPackage dp = (DataPackage) ois.readObject();
 						
 						String username = "";
@@ -350,8 +358,9 @@ public class Server
 							username = (String) dp.getValue();
 						}
 
-						ObjectOutputStream oos = new ObjectOutputStream(socket0.getOutputStream());
+						ObjectOutputStream oos = new ObjectOutputStream(new BufferedOutputStream(socket0.getOutputStream()));
 						oos.writeObject(new DataPackage("message", "Welcome to the server, " + username + "!"));
+						oos.flush();
 
 						clients.add(new ClientThread(socket0, socket1, clientAddr, clientName));
 						list_clients_model.addElement(username + " - " + clientAddr + " - " + clientName);
@@ -360,8 +369,9 @@ public class Server
 					}
 					else
 					{
-						ObjectOutputStream oos = new ObjectOutputStream(socket0.getOutputStream());
-						oos.writeObject(new DataPackage("message", "Client is not valid or is already connected!"));
+						ObjectOutputStream oos = new ObjectOutputStream(new BufferedOutputStream(socket0.getOutputStream()));
+						oos.writeObject(new DataPackage("message", "Client is already connected!"));
+						oos.flush();
 					}
 				}
 				catch(Exception ex) {}

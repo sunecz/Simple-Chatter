@@ -23,30 +23,34 @@ import javax.swing.JTable;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 
-public class FileSelectorServer
-{
-	private JFrame frame;
-	private JPanel contentPane;
-	private JPanel panel;
-	private JPanel subPanel0;
-	private JTable tableFiles;
-	private JButton btnAddFile;
-	private JButton btnClear;
-	private JScrollPane scrollPane;
-	private DefaultTableModel tableModel;
-	private JButton btnRemoveFile;
-	private JPanel subPanel2;
-	private JButton btnSend;
-	private JPanel subPanel1;
-	private JPanel subPanel3;
+public class FileSelector
+{	
+	private final JFrame frame;
+	private final JPanel contentPane;
+	private final JPanel panel;
+	private final JPanel subPanel0;
+	private final JTable tableFiles;
+	private final JButton btnAddFile;
+	private final JButton btnClear;
+	private final JScrollPane scrollPane;
+	private final DefaultTableModel tableModel;
+	private final JButton btnRemoveFile;
+	private final JPanel subPanel2;
+	private final JButton btnSend;
+	private final JPanel subPanel1;
+	private final JPanel subPanel3;
 	
-	private ArrayList<File> files = new ArrayList<File>();
+	private final ArrayList<File> files;
+	private final FileSelectorActions fsa;
 	
 	/**
 	 * @wbp.parser.entryPoint
 	 */
-	public FileSelectorServer()
+	public FileSelector(FileSelectorActions actions)
 	{
+		files = new ArrayList<File>();
+		fsa = actions;
+		
 		frame = new JFrame();
 		frame.setTitle("Send files");
 		frame.setResizable(false);
@@ -186,7 +190,7 @@ public class FileSelectorServer
 					{
 						for(File f : files)
 						{
-							Server.sendFile(f);
+							fsa.Send(f);
 						}
 					}
 

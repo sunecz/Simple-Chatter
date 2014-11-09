@@ -246,7 +246,14 @@ public class Client
 			{
 				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
 				{
-					new FileSelectorClient();
+					new FileSelector(new FileSelectorActions()
+					{
+						@Override
+						public void Send(File f)
+						{
+							Client.sendFile(f);
+						}
+					});
 				}
 			}
 		});
@@ -303,50 +310,84 @@ public class Client
 		}
 		catch(Exception e) {}
 	}
+
+	private static String srvIP = "";
+	private static String localIP = "";
 	
+	private final static int srvMessagesPort = 2400;
+	private final static int srvFilesPort = 2401;
+	
+	private static Socket socket_messages;
+	private static Socket socket_files;
+
+	private static int client_state = 0;
+	private static String username = "Unknown";
 	private static boolean enableThreads = true;
+	
+	private static ArrayList<DataPackage> received_messages = new ArrayList<DataPackage>();
+	private static ArrayList<Message> messagesToSend = new ArrayList<Message>();
+	
 	private static void connectToServer(String serverIP, int serverPort, int serverPort2)
 	{
-		try
+		if(socket_messages != null && socket_files != null)
 		{
-			if(socket_messages != null)
+			try
 			{
 				socket_messages.close();
 				socket_files.close();
 				
 				logText("Client has been disconnected from server " + srvIP + ":" + srvMessagesPort + "!");
 			}
-			
-			enableThreads = false;
-			frame.setTitle("Client " + serverIP + ":" + serverPort);
-			logText("Connecting to " + serverIP + ":" + serverPort + "...");
-
-			srvIP = serverIP;
-			srvMessagesPort = serverPort;
-			srvFilesPort = serverPort2;
-
+			catch(Exception ex) {}			
+		}
+		
+		srvIP = serverIP;
+		enableThreads = false;
+		
+		frame.setTitle("Client " + serverIP + ":" + serverPort);
+		logText("Connecting to " + serverIP + ":" + serverPort + "...");
+		
+		try
+		{
 			socket_messages = new Socket();
 			socket_messages.connect(new InetSocketAddress(srvIP, srvMessagesPort), 8000);
+			socket_messages.setSoTimeout(8000);
 
 			socket_files = new Socket();
 			socket_files.connect(new InetSocketAddress(srvIP, srvFilesPort), 8000);
-			
-			ObjectOutputStream oos = new ObjectOutputStream(socket_messages.getOutputStream());
-			oos.writeObject(new DataPackage("username", username));
-
-			ObjectInputStream ois = new ObjectInputStream(socket_messages.getInputStream());
-			DataPackage data = (DataPackage) ois.readObject();
-			
-			if(data.getObjectName().equals("message"))
-			{
-				logText(data);
-			}
-			
-			enableThreads = true;
+			socket_files.setSoTimeout(8000);
 		}
 		catch(Exception ex)
 		{
-			logText("Cannot connect to the server!");
+			socket_messages = null;
+			socket_files = null;
+		}
+		finally
+		{
+			if(socket_messages != null && socket_files != null)
+			{
+				try
+				{
+					ObjectOutputStream oos = new ObjectOutputStream(new BufferedOutputStream(socket_messages.getOutputStream()));
+					oos.writeObject(new DataPackage("username", username));
+					oos.flush();
+
+					ObjectInputStream ois = new ObjectInputStream(new BufferedInputStream(socket_messages.getInputStream()));
+					DataPackage data = (DataPackage) ois.readObject();
+					
+					if(data.getObjectName().equals("message"))
+					{
+						logText(data);
+					}
+					
+					enableThreads = true;
+				}
+				catch(Exception ex) {}
+			}
+			else
+			{
+				logText("Cannot connect to the server!");
+			}
 		}
 	}
 	
@@ -356,43 +397,15 @@ public class Client
 		
 		if(strIP != null && !strIP.isEmpty())
 		{
-			String strPort = JOptionPane.showInputDialog(frame, "Server PORT", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
-
-			if(strPort != null && !strPort.isEmpty())
+			new Thread(new Runnable()
 			{
-				int intPort = Integer.parseInt(strPort);
-				String strPort2 = JOptionPane.showInputDialog(frame, "Server PORT2", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
-
-				if(strPort2 != null && !strPort2.isEmpty())
+				public void run()
 				{
-					int intPort2 = Integer.parseInt(strPort2);
-
-					new Thread(new Runnable()
-					{
-						public void run()
-						{
-							connectToServer(strIP, intPort, intPort2);
-						}
-					}).start();						
-				}					
-			}
+					connectToServer(strIP, srvMessagesPort, srvFilesPort);
+				}
+			}).start();	
 		}
 	}
-	
-	private static String srvIP = "";
-	private static String localIP = "";
-	
-	private static int srvMessagesPort = 2400;
-	private static int srvFilesPort = 2401;
-	
-	private static Socket socket_messages;
-	private static Socket socket_files;
-
-	private static int client_state = 0;
-	private static String username = "Unknown";
-	
-	private static ArrayList<DataPackage> received_messages = new ArrayList<DataPackage>();
-	private static ArrayList<Message> messagesToSend = new ArrayList<Message>();
 	
 	private static Runnable receiveMessages = new Runnable()
 	{
@@ -407,7 +420,7 @@ public class Client
 				{
 					try
 					{
-						ois = new ObjectInputStream(socket_messages.getInputStream());
+						ois = new ObjectInputStream(new BufferedInputStream(socket_messages.getInputStream()));
 						DataPackage dp = (DataPackage) ois.readObject();
 
 						received_messages.add(dp);
@@ -489,8 +502,9 @@ public class Client
 						{
 							try
 							{
-								oos = new ObjectOutputStream(socket_messages.getOutputStream());
+								oos = new ObjectOutputStream(new BufferedOutputStream(socket_messages.getOutputStream()));
 								oos.writeObject(new DataPackage("message", msg, msg.getUsername(), msg.getIP()));
+								oos.flush();
 							}
 							catch(Exception e) {}
 						}
@@ -534,7 +548,7 @@ public class Client
 				{
 					try
 					{
-						ois = new ObjectInputStream(socket_files.getInputStream());
+						ois = new ObjectInputStream(new BufferedInputStream(socket_files.getInputStream()));
 						DataPackage dp = (DataPackage) ois.readObject();
 
 						int s = 0;
@@ -675,8 +689,9 @@ public class Client
 						{
 							try
 							{
-								oos = new ObjectOutputStream(socket_files.getOutputStream());
+								oos = new ObjectOutputStream(new BufferedOutputStream(socket_files.getOutputStream()));
 								oos.writeObject(dp);
+								oos.flush();
 							}
 							catch(Exception e) {}
 						}
@@ -717,8 +732,9 @@ public class Client
 										{
 											if(client_state == 0)
 											{
-												oos = new ObjectOutputStream(socket_files.getOutputStream());
+												oos = new ObjectOutputStream(new BufferedOutputStream(socket_files.getOutputStream()));
 												oos.writeObject(new DataPackage("user_file_data", fdp));
+												oos.flush();
 											}
 											else
 											{

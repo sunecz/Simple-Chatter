@@ -2,9 +2,10 @@ package net.sune.networking;
 
 import java.io.Serializable;
 
-@SuppressWarnings("serial")
 public class Message implements Serializable
 {
+	private static final long serialVersionUID = 8L;
+	
 	private String username;
 	private String time;
 	private String content;

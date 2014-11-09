@@ -1,5 +1,7 @@
 package net.sune.networking;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
@@ -47,7 +49,7 @@ public class ClientThread
 			{
 				try
 				{
-					ois = new ObjectInputStream(socket0.getInputStream());
+					ois = new ObjectInputStream(new BufferedInputStream(socket0.getInputStream()));
 					DataPackage dp = (DataPackage) ois.readObject();
 					
 					messages_received.add(dp);
@@ -76,8 +78,9 @@ public class ClientThread
 				{
 					if(milliseconds == 100)
 					{
-						oos = new ObjectOutputStream(socket0.getOutputStream());
+						oos = new ObjectOutputStream(new BufferedOutputStream(socket0.getOutputStream()));
 						oos.writeObject(new DataPackage("client_state", client_state));
+						oos.flush();
 						
 						milliseconds = 0;
 					}
@@ -88,8 +91,9 @@ public class ClientThread
 						{
 							try
 							{
-								oos = new ObjectOutputStream(socket0.getOutputStream());
-								oos.writeObject(new DataPackage("message", msg));						
+								oos = new ObjectOutputStream(new BufferedOutputStream(socket0.getOutputStream()));
+								oos.writeObject(new DataPackage("message", msg));
+								oos.flush();
 							}
 							catch(Exception ex) {}
 						}
@@ -116,7 +120,7 @@ public class ClientThread
 			{
 				try
 				{
-					ois = new ObjectInputStream(socket1.getInputStream());
+					ois = new ObjectInputStream(new BufferedInputStream(socket1.getInputStream()));
 					DataPackage dp = (DataPackage) ois.readObject();
 
 					files_received.add(dp);
@@ -143,8 +147,9 @@ public class ClientThread
 					{
 						try
 						{
-							oos = new ObjectOutputStream(socket1.getOutputStream());
-							oos.writeObject(dp);						
+							oos = new ObjectOutputStream(new BufferedOutputStream(socket1.getOutputStream()));
+							oos.writeObject(dp);
+							oos.flush();
 						}
 						catch(Exception ex) {}
 					}
