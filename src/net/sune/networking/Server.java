@@ -353,9 +353,9 @@ public class Server
 						DataPackage dp = (DataPackage) ois.readObject();
 						
 						String username = "";
-						if(dp.getObjectName().equals("username"))
+						if(dp.OBJECT_NAME.equals("username"))
 						{
-							username = (String) dp.getValue();
+							username = (String) dp.OBJECT;
 						}
 
 						ObjectOutputStream oos = new ObjectOutputStream(new BufferedOutputStream(socket0.getOutputStream()));
@@ -402,9 +402,9 @@ public class Server
 							{
 								try
 								{
-									if(dp.getObjectName().equals("message"))
+									if(dp.OBJECT_NAME.equals("message"))
 									{
-										Message msg = (Message) dp.getValue();
+										Message msg = (Message) dp.OBJECT;
 										
 										logText(msg);
 										sendUserMessage(dp);
@@ -475,7 +475,7 @@ public class Server
 	
 	private static void sendUserMessage(DataPackage dp)
 	{
-		messagesUserToSend.add((Message) dp.getValue());
+		messagesUserToSend.add((Message) dp.OBJECT);
 	}
 
 	private static ArrayList<Integer> canSendFile = new ArrayList<Integer>();
@@ -507,9 +507,9 @@ public class Server
 						{
 							try
 							{
-								if(dp.getObjectName().equals("receive_file_data"))
+								if(dp.OBJECT_NAME.equals("receive_file_data"))
 								{
-									int val = (int) dp.getValue();
+									int val = (int) dp.OBJECT;
 									
 									if(val == 1)
 									{
@@ -529,9 +529,9 @@ public class Server
 										response++;
 									}
 								}
-								else if(dp.getObjectName().equals("user_file_data"))
+								else if(dp.OBJECT_NAME.equals("user_file_data"))
 								{
-									FileDataPackage fdp = (FileDataPackage) dp.getValue();
+									FileDataPackage fdp = (FileDataPackage) dp.OBJECT;
 									filesBytes.add(fdp);
 								}
 							}
@@ -562,11 +562,11 @@ public class Server
 					{
 						try
 						{
-							String fileHash = fdp.getFileHash();
-							String fileName = fdp.getFileName();
+							String fileHash = fdp.FILE_HASH;
+							String fileName = fdp.FILE_NAME;
 							
-							long fileSize = fdp.getFileSize();
-							int sentBytes = fdp.getBytes().length;
+							long fileSize = fdp.FILE_SIZE;
+							int sentBytes = fdp.BYTES.length;
 							
 							if(!fileBytesHashes.contains(fileHash))
 							{
@@ -576,7 +576,7 @@ public class Server
 									{
 										try
 										{
-											if(!client.getIP().equals(fdp.getIP()))
+											if(!client.getIP().equals(fdp.IP))
 											{
 												DataPackage dp = new DataPackage("confirm_receive", new FileDataPackage("Server", srvIP, fileHash, fileName, fileSize, 0));
 												client.addDataPackage(dp);
@@ -612,7 +612,7 @@ public class Server
 									{
 										ClientThread client = clients.get(x);
 										
-										if(client.getClientState() == 0 && !client.getIP().equals(fdp.getIP()) && fileBytesHashes.contains(fileHash))
+										if(client.getClientState() == 0 && !client.getIP().equals(fdp.IP) && fileBytesHashes.contains(fileHash))
 										{
 											client.addDataPackage(new DataPackage("file_data", fdp));
 											canContinueSending = false;
@@ -664,7 +664,7 @@ public class Server
 							allBytes += sentBytes;
 							fileTemp.set(index, new Object[] {fileHash, allBytes});
 							
-							if(allBytes >= fdp.getFileSize())
+							if(allBytes >= fdp.FILE_SIZE)
 							{
 								if(index > -1)
 								{
@@ -813,9 +813,9 @@ public class Server
 
 	private static void logText(Message msg)
 	{
-		String text = msg.getContent();
-		String time = msg.getTime();
-		String user = msg.getUsername();
+		String text = msg.CONTENT;
+		String time = msg.TIME;
+		String user = msg.USERNAME;
 		
 		textArea.append("[" + user + " - " + time + "]: " + text + "\n");
 

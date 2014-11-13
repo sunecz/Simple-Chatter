@@ -5,6 +5,8 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Formatter;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Utils
 {
@@ -56,5 +58,35 @@ public class Utils
 	    catch(Exception e) {}
 	    
 	    return sha1;
+	}
+	
+	public static boolean isValidIP(String ip)
+	{
+		Pattern p = Pattern.compile("(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})");
+		Matcher m = p.matcher(ip);
+		
+		if(m.matches())
+		{
+			for(int i = 1; i < m.groupCount(); i++)
+			{
+				int val = Integer.parseInt(m.group(i));
+				
+				if(val >= 0 && val <= 255)
+				{
+					if(i == (m.groupCount() - 1) && val == 0)
+					{
+						return false;
+					}
+				}
+				else
+				{
+					return false;
+				}
+			}
+			
+			return true;
+		}
+		
+		return false;
 	}
 }

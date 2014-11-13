@@ -375,7 +375,7 @@ public class Client
 					ObjectInputStream ois = new ObjectInputStream(new BufferedInputStream(socket_messages.getInputStream()));
 					DataPackage data = (DataPackage) ois.readObject();
 					
-					if(data.getObjectName().equals("message"))
+					if(data.OBJECT_NAME.equals("message"))
 					{
 						logText(data);
 					}
@@ -393,9 +393,9 @@ public class Client
 	
 	private static void connectToServerDialog()
 	{
-		String strIP = JOptionPane.showInputDialog(frame, "Server IP", "Connect to a server", JOptionPane.PLAIN_MESSAGE);
+		String strIP = JOptionPane.showInputDialog(frame, "Server IP", "Connect to a server", JOptionPane.QUESTION_MESSAGE);
 		
-		if(strIP != null && !strIP.isEmpty())
+		if(strIP != null && !strIP.isEmpty() && Utils.isValidIP(strIP))
 		{
 			new Thread(new Runnable()
 			{
@@ -404,6 +404,10 @@ public class Client
 					connectToServer(strIP, srvMessagesPort, srvFilesPort);
 				}
 			}).start();	
+		}
+		else
+		{
+			JOptionPane.showMessageDialog(null, "Invalid IP address", "Connect to a server", JOptionPane.ERROR_MESSAGE);
 		}
 	}
 	
@@ -448,9 +452,9 @@ public class Client
 						{
 							try
 							{
-								if(data.getObjectName().equals("client_state"))
+								if(data.OBJECT_NAME.equals("client_state"))
 								{
-									int receive_state = (int) data.getValue();
+									int receive_state = (int) data.OBJECT;
 									
 									switch(receive_state)
 									{
@@ -468,9 +472,9 @@ public class Client
 									
 									client_state = receive_state;
 								}
-								else if(data.getObjectName().equals("message"))
+								else if(data.OBJECT_NAME.equals("message"))
 								{
-									logText((Message) data.getValue());
+									logText((Message) data.OBJECT);
 								}
 							}
 							catch(Exception e) {}
@@ -503,7 +507,7 @@ public class Client
 							try
 							{
 								oos = new ObjectOutputStream(new BufferedOutputStream(socket_messages.getOutputStream()));
-								oos.writeObject(new DataPackage("message", msg, msg.getUsername(), msg.getIP()));
+								oos.writeObject(new DataPackage("message", msg, msg.USERNAME, msg.IP));
 								oos.flush();
 							}
 							catch(Exception e) {}
@@ -552,15 +556,15 @@ public class Client
 						DataPackage dp = (DataPackage) ois.readObject();
 
 						int s = 0;
-						if(dp.getObjectName().equals("file_data"))
+						if(dp.OBJECT_NAME.equals("file_data"))
 						{
-							FileDataPackage fdp = (FileDataPackage) dp.getValue();
+							FileDataPackage fdp = (FileDataPackage) dp.OBJECT;
 							received_files.add(fdp);
 							s = 1;
 						}
-						else if(dp.getObjectName().equals("confirm_receive"))
+						else if(dp.OBJECT_NAME.equals("confirm_receive"))
 						{
-							confirmReceiveFileData = (FileDataPackage) dp.getValue();
+							confirmReceiveFileData = (FileDataPackage) dp.OBJECT;
 							confirmReceiveFile = true;
 						}
 
@@ -587,9 +591,9 @@ public class Client
 					{
 						if(confirmReceiveFile)
 						{
-							String fHash = confirmReceiveFileData.getFileHash();
-							String fName = confirmReceiveFileData.getFileName();
-							String fUser = confirmReceiveFileData.getUsername();
+							String fHash = confirmReceiveFileData.FILE_HASH;
+							String fName = confirmReceiveFileData.FILE_NAME;
+							String fUser = confirmReceiveFileData.USERNAME;
 							
 							int confirm = JOptionPane.showConfirmDialog(frame, fUser + " is sending you a file (" + fName + ").\nWould you like to accept receiving?", "Receive file", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
 							if(confirm == JOptionPane.YES_OPTION)
@@ -630,14 +634,14 @@ public class Client
 								try
 								{
 									FileDataPackage data = received_files.get(i);
-									String hash = data.getFileHash();
+									String hash = data.FILE_HASH;
 									
 									if(!fileBanned.contains(hash))
 									{
-										String fileName = data.getFileName();
-										long fileSize = data.getFileSize();
+										String fileName = data.FILE_NAME;
+										long fileSize = data.FILE_SIZE;
 										int index = fileHashes.indexOf(hash);
-										byte[] bytes = data.getBytes();
+										byte[] bytes = data.BYTES;
 										
 										fileBOS.write(bytes);
 										downloaded += bytes.length;
@@ -773,9 +777,9 @@ public class Client
 
 	private static void logText(DataPackage dp)
 	{
-		String text = (String) dp.getValue();
-		String time = dp.getTime();
-		String user = dp.getUsername();
+		String text = (String) dp.OBJECT;
+		String time = dp.TIME;
+		String user = dp.USERNAME;
 		
 		textArea.append("[" + user + " - " + time + "]: " + text + "\n");
 
@@ -785,9 +789,9 @@ public class Client
 	
 	private static void logText(Message msg)
 	{
-		String text = msg.getContent();
-		String time = msg.getTime();
-		String user = msg.getUsername();
+		String text = msg.CONTENT;
+		String time = msg.TIME;
+		String user = msg.USERNAME;
 		
 		textArea.append("[" + user + " - " + time + "]: " + text + "\n");
 

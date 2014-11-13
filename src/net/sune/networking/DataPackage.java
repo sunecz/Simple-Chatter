@@ -5,12 +5,12 @@ public class DataPackage implements Serializable
 {
 	private static final long serialVersionUID = 8L;
 	
-	private String objectName;
-	private Object object;
+	public final String OBJECT_NAME;
+	public final Object OBJECT;
 	
-	private String time;
-	private String username;
-	private String ip;
+	public final String TIME;
+	public final String USERNAME;
+	public final String IP;
 	
 	public DataPackage(String objectName, Object value)
 	{
@@ -19,35 +19,10 @@ public class DataPackage implements Serializable
 	
 	public DataPackage(String objectName, Object value, String username, String ip)
 	{
-		this.objectName = objectName;
-		this.object = value;
-		this.time = Utils.getCurrentDateFormatted();
-		this.username = username;
-		this.ip = ip;
-	}
-	
-	public String getObjectName()
-	{
-		return this.objectName;
-	}
-	
-	public Object getValue()
-	{
-		return this.object;
-	}
-	
-	public String getTime()
-	{
-		return this.time;
-	}
-	
-	public String getUsername()
-	{
-		return this.username;
-	}
-	
-	public String getIP()
-	{
-		return this.ip;
+		this.OBJECT_NAME = objectName;
+		this.OBJECT = value;
+		this.TIME = Utils.getCurrentDateFormatted();
+		this.USERNAME = username;
+		this.IP = ip;
 	}
 }

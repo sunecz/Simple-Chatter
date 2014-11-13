@@ -6,66 +6,32 @@ public class FileDataPackage implements Serializable
 {
 	private static final long serialVersionUID = 8L;
 	
-	private String username;
-	private String time;
-	private String ip;
+	public final String USERNAME;
+	public final String TIME;
+	public final String IP;
 	
-	private String fileHash;
-	private String fileName;
-	private long fileSize;
+	public final String FILE_HASH;
+	public final String FILE_NAME;
+	public final long FILE_SIZE;
 	
-	private byte[] bytes;
+	public byte[] BYTES;
 	
 	public FileDataPackage(String username, String ip, String fileHash, String fileName, long fileSize, int bytesCount)
 	{
-		this.username = username;
-		this.ip = ip;
+		this.USERNAME = username;
+		this.TIME = Utils.getCurrentDate();
+		this.IP = ip;
 		
-		this.fileHash = fileHash;
-		this.fileName = fileName;
-		this.fileSize = fileSize;
+		this.FILE_HASH = fileHash;
+		this.FILE_NAME = fileName;
+		this.FILE_SIZE = fileSize;
 		
-		this.bytes = new byte[bytesCount];
+		this.BYTES = new byte[bytesCount];
 	}
 	
 	public FileDataPackage SetData(byte[] b)
 	{
-		this.bytes = b;
+		this.BYTES = b;
 		return this;
-	}
-	
-	public byte[] getBytes()
-	{
-		return this.bytes;
-	}
-	
-	public String getFileHash()
-	{
-		return this.fileHash;
-	}
-
-	public String getFileName()
-	{
-		return this.fileName;
-	}
-	
-	public long getFileSize()
-	{
-		return this.fileSize;
-	}
-	
-	public String getUsername()
-	{
-		return this.username;
-	}
-	
-	public String getIP()
-	{
-		return this.ip;
-	}
-	
-	public String getTime()
-	{
-		return this.time;
 	}
 }

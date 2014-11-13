@@ -6,36 +6,16 @@ public class Message implements Serializable
 {
 	private static final long serialVersionUID = 8L;
 	
-	private String username;
-	private String time;
-	private String content;
-	private String ip;
+	public final String USERNAME;
+	public final String TIME;
+	public final String CONTENT;
+	public final String IP;
 	
 	public Message(String username, String time, String content, String ip)
 	{
-		this.username = username;
-		this.time = time;
-		this.content = content;
-		this.ip = ip;
-	}
-	
-	public String getUsername()
-	{
-		return this.username;
-	}
-	
-	public String getTime()
-	{
-		return this.time;
-	}
-	
-	public String getContent()
-	{
-		return this.content;
-	}
-	
-	public String getIP()
-	{
-		return this.ip;
+		this.USERNAME = username;
+		this.TIME = time;
+		this.CONTENT = content;
+		this.IP = ip;
 	}
 }
