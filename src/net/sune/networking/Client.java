@@ -6,7 +6,6 @@ import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
-import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
@@ -31,6 +30,9 @@ import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
@@ -54,13 +56,16 @@ public class Client
 	private static JButton btnSend;
 	private static JPanel subPanel1;
 	private static JPanel subPanel2;
-	private static JButton btnDisconnect;
-	private static JButton btnConnect;
 	private static JLabel lblDownloadInfo;
-	private static JButton btnSendFiles;
-	private static JPanel panel;
 	private static JPanel subPanel3;
 	private static JProgressBar prgbarDownload;
+	private static JMenuBar menuBar;
+	private static JMenu mnClient;
+	private static JMenuItem mntmConnect;
+	private static JMenuItem mntmDisconnect;
+	private static JMenu mnFile;
+	private static JMenuItem mntmCancelSending;
+	private static JMenuItem mntmSendFiles;
 	
 	private static void WindowClient(String ip, int port)
 	{
@@ -86,63 +91,17 @@ public class Client
 		panel0.add(subPanel2, BorderLayout.NORTH);
 		GridBagLayout gbl_subPanel2 = new GridBagLayout();
 		gbl_subPanel2.columnWidths = new int[]{160, 160, 0};
-		gbl_subPanel2.rowHeights = new int[]{27, 0, 0};
+		gbl_subPanel2.rowHeights = new int[]{0, 0};
 		gbl_subPanel2.columnWeights = new double[]{1.0, 1.0, Double.MIN_VALUE};
-		gbl_subPanel2.rowWeights = new double[]{0.0, 0.0, Double.MIN_VALUE};
+		gbl_subPanel2.rowWeights = new double[]{0.0, Double.MIN_VALUE};
 		subPanel2.setLayout(gbl_subPanel2);
-		
-		btnConnect = new JButton("Connect");
-		btnConnect.addActionListener(new ActionListener()
-		{
-			@Override
-			public void actionPerformed(ActionEvent e)
-			{
-				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
-				{
-					connectToServerDialog();
-				}
-			}
-		});
-		
-		btnConnect.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
-		GridBagConstraints gbc_btnConnect = new GridBagConstraints();
-		gbc_btnConnect.fill = GridBagConstraints.BOTH;
-		gbc_btnConnect.insets = new Insets(0, 0, 5, 5);
-		gbc_btnConnect.gridx = 0;
-		gbc_btnConnect.gridy = 0;
-		subPanel2.add(btnConnect, gbc_btnConnect);
-		
-		btnDisconnect = new JButton("Disconnect");
-		btnDisconnect.addActionListener(new ActionListener()
-		{
-			@Override
-			public void actionPerformed(ActionEvent e)
-			{
-				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
-				{
-					try
-					{
-						disconnect();
-					}
-					catch(Exception ex) {}
-				}
-			}
-		});
-		
-		btnDisconnect.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
-		GridBagConstraints gbc_btnDisconnect = new GridBagConstraints();
-		gbc_btnDisconnect.fill = GridBagConstraints.BOTH;
-		gbc_btnDisconnect.insets = new Insets(0, 0, 5, 0);
-		gbc_btnDisconnect.gridx = 1;
-		gbc_btnDisconnect.gridy = 0;
-		subPanel2.add(btnDisconnect, gbc_btnDisconnect);
 		
 		subPanel3 = new JPanel();
 		GridBagConstraints gbc_subPanel3 = new GridBagConstraints();
 		gbc_subPanel3.gridwidth = 2;
 		gbc_subPanel3.fill = GridBagConstraints.BOTH;
 		gbc_subPanel3.gridx = 0;
-		gbc_subPanel3.gridy = 1;
+		gbc_subPanel3.gridy = 0;
 		subPanel2.add(subPanel3, gbc_subPanel3);
 		subPanel3.setLayout(new BorderLayout(0, 0));
 		
@@ -227,45 +186,67 @@ public class Client
 		subPanel1.add(btnSend);
 		btnSend.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
 		
-		panel = new JPanel();
-		panel.setBorder(new EmptyBorder(5, 0, 0, 0));
-		panel2.add(panel, BorderLayout.SOUTH);
-		GridBagLayout gbl_panel = new GridBagLayout();
-		gbl_panel.columnWidths = new int[] {480, 0};
-		gbl_panel.rowHeights = new int[]{23, 0};
-		gbl_panel.columnWeights = new double[]{0.0, Double.MIN_VALUE};
-		gbl_panel.rowWeights = new double[]{0.0, Double.MIN_VALUE};
-		panel.setLayout(gbl_panel);
+		menuBar = new JMenuBar();
+		frame.setJMenuBar(menuBar);
 		
-		btnSendFiles = new JButton("Send files");
-		btnSendFiles.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
-		btnSendFiles.addActionListener(new ActionListener()
+		mnClient = new JMenu("Client");
+		menuBar.add(mnClient);
+		
+		mntmConnect = new JMenuItem("Connect");
+		mntmConnect.addActionListener(new ActionListener()
 		{
-			@Override
 			public void actionPerformed(ActionEvent e)
 			{
-				if(e.getModifiers() == MouseEvent.BUTTON1_MASK)
-				{
-					new FileSelector(new FileSelectorActions()
-					{
-						@Override
-						public void Send(File f)
-						{
-							Client.sendFile(f);
-						}
-					});
-				}
+				connectToServerDialog();
 			}
 		});
 		
-		GridBagConstraints gbc_btnSendFiles = new GridBagConstraints();
-		gbc_btnSendFiles.anchor = GridBagConstraints.NORTHWEST;
-		gbc_btnSendFiles.gridx = 0;
-		gbc_btnSendFiles.gridy = 0;
-		panel.add(btnSendFiles, gbc_btnSendFiles);
+		mnClient.add(mntmConnect);
+		
+		mntmDisconnect = new JMenuItem("Disconnect");
+		mntmDisconnect.addActionListener(new ActionListener()
+		{
+			public void actionPerformed(ActionEvent e)
+			{
+				disconnect();
+			}
+		});
+		
+		mnClient.add(mntmDisconnect);
+		
+		mnFile = new JMenu("File");
+		menuBar.add(mnFile);
+		
+		mntmSendFiles = new JMenuItem("Send files");
+		mntmSendFiles.addActionListener(new ActionListener()
+		{
+			public void actionPerformed(ActionEvent e)
+			{
+				new FileSelector(new FileSelectorActions()
+				{
+					@Override
+					public void Send(File f)
+					{
+						Client.sendFile(f);
+					}
+				});
+			}
+		});
+		
+		mnFile.add(mntmSendFiles);
+		
+		mntmCancelSending = new JMenuItem("Cancel receiving");
+		mntmCancelSending.addActionListener(new ActionListener()
+		{
+			public void actionPerformed(ActionEvent e)
+			{
+				cancelReceiving();
+			}
+		});
+		
+		mnFile.add(mntmCancelSending);
 		
 		frame.setVisible(true);
-
 		frame.addWindowListener(new WindowListener()
 		{
 			@Override
@@ -507,7 +488,7 @@ public class Client
 							try
 							{
 								oos = new ObjectOutputStream(new BufferedOutputStream(socket_messages.getOutputStream()));
-								oos.writeObject(new DataPackage("message", msg, msg.USERNAME, msg.IP));
+								oos.writeObject(new DataPackage("message", msg, msg.USERNAME, msg.SENDER_IP));
 								oos.flush();
 							}
 							catch(Exception e) {}
@@ -765,6 +746,26 @@ public class Client
 		}
 	};
 
+	private static void cancelReceiving()
+	{
+		try
+		{
+			fileStatusesToSend.add(new DataPackage("cancel_sending", 1, username, localIP));
+			
+			fileHashes.remove(0);
+			lblDownloadInfo.setText("No downloads are running");
+			prgbarDownload.setValue(0);
+			downloaded = 0;
+
+			fileBOS.close();
+		}
+		catch(Exception ex) {}
+		finally
+		{
+			JOptionPane.showMessageDialog(null, "File receiving has been canceled!", "Canceled", JOptionPane.INFORMATION_MESSAGE);
+		}
+	}
+	
 	public static void sendFile(File f)
 	{
 		files.add(f);

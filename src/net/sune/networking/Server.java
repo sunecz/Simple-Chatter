@@ -529,6 +529,15 @@ public class Server
 										response++;
 									}
 								}
+								else if(dp.OBJECT_NAME.equals("cancel_sending"))
+								{
+									int clientIndex = getClientIndexByIP(dp.IP);
+									
+									if(canSendFile.contains(clientIndex))
+									{
+										canSendFile.remove(new Integer(clientIndex));
+									}
+								}
 								else if(dp.OBJECT_NAME.equals("user_file_data"))
 								{
 									FileDataPackage fdp = (FileDataPackage) dp.OBJECT;
@@ -612,7 +621,7 @@ public class Server
 									{
 										ClientThread client = clients.get(x);
 										
-										if(client.getClientState() == 0 && !client.getIP().equals(fdp.IP) && fileBytesHashes.contains(fileHash))
+										if(!client.getIP().equals(fdp.IP) && fileBytesHashes.contains(fileHash))
 										{
 											client.addDataPackage(new DataPackage("file_data", fdp));
 											canContinueSending = false;
@@ -631,11 +640,6 @@ public class Server
 												
 												Utils.sleep(1);
 											}
-										}
-										else
-										{
-											disconnectClient(x);
-											x--;
 										}
 									}
 									catch(Exception ex) {}
@@ -751,29 +755,22 @@ public class Server
 													{
 														ClientThread client = clients.get(x);
 
-														if(client.getClientState() == 0)
+														client.addDataPackage(new DataPackage("file_data", fdp));
+														canContinueSending = false;
+														
+														int timeout = 0;
+														while(!canContinueSending)
 														{
-															client.addDataPackage(new DataPackage("file_data", fdp));
-															canContinueSending = false;
-															
-															int timeout = 0;
-															while(!canContinueSending)
+															timeout++;
+															if(timeout == 8000)
 															{
-																timeout++;
-																if(timeout == 8000)
-																{
-																	logText(client.getUsername() + " IP=" + client.getIP() + " has timed out!");
-																	
-																	canContinueSending = true;
-																	canSendFile.remove(new Integer(x));
-																}
+																logText(client.getUsername() + " IP=" + client.getIP() + " has timed out!");
 																
-																Utils.sleep(1);
+																canContinueSending = true;
+																canSendFile.remove(new Integer(x));
 															}
-														}
-														else
-														{
-															disconnectClient(x);
+															
+															Utils.sleep(1);
 														}
 													}
 												}
@@ -805,6 +802,21 @@ public class Server
 			}
 		}
 	};
+	
+	public static int getClientIndexByIP(String ip)
+	{
+		for(int x = 0; x < clients.size(); x++)
+		{
+			ClientThread cli = clients.get(x);
+			
+			if(cli.getIP().equals(ip))
+			{
+				return x;
+			}
+		}
+		
+		return -1;
+	}
 	
 	public static void sendFile(File f)
 	{

@@ -16,11 +16,11 @@ public class ClientThread
 	private final String username;
 	private int client_state;
 	
-	private ArrayList<DataPackage> messages_received = new ArrayList<DataPackage>();
-	private ArrayList<Message> messages_tosend = new ArrayList<Message>();
+	private final ArrayList<DataPackage> messages_received;
+	private final ArrayList<Message> messages_tosend;
 	
-	private static ArrayList<DataPackage> files_received = new ArrayList<DataPackage>();
-	private static ArrayList<DataPackage> files_tosend = new ArrayList<DataPackage>();
+	private final ArrayList<DataPackage> files_received;
+	private final ArrayList<DataPackage> files_tosend;
 	
 	public ClientThread(Socket socket0, Socket socket1, String clientIP, String username)
 	{
@@ -30,6 +30,12 @@ public class ClientThread
 		this.clientIP = clientIP;
 		this.username = username;
 		this.client_state = 0;
+		
+		this.messages_received = new ArrayList<>();
+		this.messages_tosend = new ArrayList<>();
+		
+		this.files_received = new ArrayList<>();
+		this.files_tosend = new ArrayList<>();
 		
 		new Thread(receiveMessages).start();
 		new Thread(sendMessages).start();
@@ -76,7 +82,7 @@ public class ClientThread
 			{
 				try
 				{
-					if(milliseconds == 100)
+					if(milliseconds == 50)
 					{
 						oos = new ObjectOutputStream(new BufferedOutputStream(socket0.getOutputStream()));
 						oos.writeObject(new DataPackage("client_state", client_state));
@@ -174,7 +180,7 @@ public class ClientThread
 	
 	public void setClientState(int state)
 	{
-		this.client_state = state;
+		client_state = state;
 	}
 	
 	public void clearMessages()
