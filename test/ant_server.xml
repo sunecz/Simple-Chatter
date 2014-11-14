@@ -8,7 +8,10 @@
                 <attribute name="Main-Class" value="net.sune.networking.Server"/>
                 <attribute name="Class-Path" value="."/>
             </manifest>
-            <fileset dir="E:/GitHub/Simple-Chatter/bin"/>
+        	
+        	<fileset dir="E:/GitHub/Simple-Chatter/bin">
+        		<exclude name="**/Client.class"/>
+        	</fileset>
         </jar>
     </target>
 </project>
