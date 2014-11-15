@@ -415,11 +415,7 @@ public class Client
 						DataPackage dp = (DataPackage) ois.readObject();
 
 						received_messages.add(dp);
-						
-						if(dp.OBJECT_NAME.equals("message"))
-						{
-							sendData(new DataPackage("send_message", 1));
-						}
+						sendData(new DataPackage("send_message", 1));
 					}
 					catch(Exception ex) {}
 				}	

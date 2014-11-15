@@ -437,8 +437,9 @@ public class Server
 						for(ClientThread client : clients)
 						{
 							client.addMessage(msg);
-							logText(msg);
 						}
+						
+						logText(msg);
 					}
 
 					messagesToSend.clear();
