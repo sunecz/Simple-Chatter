@@ -291,7 +291,6 @@ public class Server
 						new Thread(acceptMessages).start();
 						new Thread(processMessages).start();
 						new Thread(sendMessages).start();
-						new Thread(processFiles).start();
 						new Thread(sendFiles).start();
 
 						logText("Server has been started on " + srvIP + ":" + srvMessagesPort + "!");
@@ -318,6 +317,8 @@ public class Server
 	
 	private static ArrayList<Message> messagesToSend = new ArrayList<Message>();
 	private static ArrayList<Message> messagesUserToSend = new ArrayList<Message>();
+	
+	private static ArrayList<File> files = new ArrayList<File>();
 
 	private static Runnable acceptMessages = new Runnable()
 	{
@@ -362,7 +363,7 @@ public class Server
 						oos.writeObject(new DataPackage("message", "Welcome to the server, " + username + "!"));
 						oos.flush();
 
-						clients.add(new ClientThread(socket0, socket1, clientAddr, clientName));
+						clients.add(new ClientThread(socket0, socket1, srvIP, clientAddr, clientName));
 						list_clients_model.addElement(username + " - " + clientAddr + " - " + clientName);
 
 						sendMessage(username + " with IP " + clientAddr + " connected to the server!");
@@ -477,87 +478,7 @@ public class Server
 	{
 		messagesUserToSend.add((Message) dp.OBJECT);
 	}
-
-	private static ArrayList<Integer> canSendFile = new ArrayList<Integer>();
-	private static ArrayList<File> files = new ArrayList<File>();
-	private static ArrayList<FileDataPackage> filesBytes = new ArrayList<FileDataPackage>();
-	private static ArrayList<String> fileBytesHashes = new ArrayList<String>();
-	private static ArrayList<Object[]> fileTemp = new ArrayList<Object[]>();
 	
-	private static boolean canContinueSending = false;
-	private static boolean isSendingFile = false;
-	private static int response = 0;
-	
-	private static Runnable processFiles = new Runnable()
-	{
-		@Override
-		public void run()
-		{
-			while(true)
-			{
-				int counter = 0;
-				
-				for(ClientThread client : clients)
-				{
-					ArrayList<DataPackage> files = client.getReceivedFiles();
-					
-					if(files.size() > 0)
-					{
-						for(DataPackage dp : files)
-						{
-							try
-							{
-								if(dp.OBJECT_NAME.equals("receive_file_data"))
-								{
-									int val = (int) dp.OBJECT;
-									
-									if(val == 1)
-									{
-										canContinueSending = true;
-									}
-									else if(val == 2)
-									{
-										if(!isSendingFile)
-										{
-											canSendFile.add(counter);
-										}
-										
-										response++;
-									}
-									else if(val == 3)
-									{
-										response++;
-									}
-								}
-								else if(dp.OBJECT_NAME.equals("cancel_sending"))
-								{
-									int clientIndex = getClientIndexByIP(dp.IP);
-									
-									if(canSendFile.contains(clientIndex))
-									{
-										canSendFile.remove(new Integer(clientIndex));
-									}
-								}
-								else if(dp.OBJECT_NAME.equals("user_file_data"))
-								{
-									FileDataPackage fdp = (FileDataPackage) dp.OBJECT;
-									filesBytes.add(fdp);
-								}
-							}
-							catch(Exception ex) {}
-						}
-						
-						client.clearFiles();
-					}
-					
-					counter++;
-				}
-					
-				Utils.sleep(1);
-			}
-		}
-	};
-
 	private static Runnable sendFiles = new Runnable()
 	{
 		@Override
@@ -565,154 +486,83 @@ public class Server
 		{
 			while(true)
 			{
-				if(filesBytes.size() > 0)
+				if(clients.size() > 1)
 				{
-					for(FileDataPackage fdp : filesBytes)
+					for(ClientThread client : clients)
 					{
-						try
+						ArrayList<FileDataPackage> sent_files = client.getSentFiles();
+						
+						if(sent_files.size() > 0)
 						{
-							String fileHash = fdp.FILE_HASH;
-							String fileName = fdp.FILE_NAME;
-							
-							long fileSize = fdp.FILE_SIZE;
-							int sentBytes = fdp.BYTES.length;
-							
-							if(!fileBytesHashes.contains(fileHash))
+							for(int i = 0; i < sent_files.size(); i++)
 							{
-								if(clients.size() > 1)
+								FileDataPackage fdp = (FileDataPackage) sent_files.get(i);
+								
+								for(ClientThread cli : clients)
 								{
-									for(ClientThread client : clients)
+									if(!cli.getIP().equals(client.getIP()))
 									{
-										try
-										{
-											if(!client.getIP().equals(fdp.IP))
-											{
-												DataPackage dp = new DataPackage("confirm_receive", new FileDataPackage("Server", srvIP, fileHash, fileName, fileSize, 0));
-												client.addDataPackage(dp);
-											}
-										}
-										catch(Exception ex) {}
+										cli.addDataPackage(new DataPackage("file_data", fdp));
 									}
-									
+								}
+							
+								for(ClientThread cli : clients)
+								{
 									int to = 0;
-									while(response != (clients.size() - 1))
+									while(cli.isWaiting() && to < 15000)
 									{
-										to++;
-										if(to == 30000)
-										{
-											break;
-										}
-										
+										to++;											
 										Utils.sleep(1);
 									}
-									
-									isSendingFile = true;									
-									
-									fileBytesHashes.add(fileHash);
-									fileTemp.add(new Object[] {fileHash, sentBytes});
-								}
-							}
-							
-							if(clients.size() > 1)
-							{
-								for(int x = 0; x < clients.size(); x++)
-								{
-									try
-									{
-										ClientThread client = clients.get(x);
-										
-										if(!client.getIP().equals(fdp.IP) && fileBytesHashes.contains(fileHash))
-										{
-											client.addDataPackage(new DataPackage("file_data", fdp));
-											canContinueSending = false;
-											
-											int timeout = 0;
-											while(!canContinueSending)
-											{
-												timeout++;
-												if(timeout == 8000)
-												{
-													logText(client.getUsername() + " IP " + client.getIP() + " has timed out!");
-													
-													canContinueSending = true;
-													canSendFile.remove(new Integer(x));
-												}
-												
-												Utils.sleep(1);
-											}
-										}
-									}
-									catch(Exception ex) {}
-								}
-							}
-							else
-							{
-								break;
-							}
-							
-							long allBytes = 0;
-							int index = -1;
-							
-							for(Object[] o : fileTemp)
-							{
-								String fh = (String) o[0];
-								index++;
-								
-								if(fh.equals(fileHash))
-								{
-									allBytes = (long) o[1];
-									break;
-								}
-							}
-							
-							allBytes += sentBytes;
-							fileTemp.set(index, new Object[] {fileHash, allBytes});
-							
-							if(allBytes >= fdp.FILE_SIZE)
-							{
-								if(index > -1)
-								{
-									fileBytesHashes.remove(index);
-									fileTemp.remove(index);
 								}
 								
-								response = 0;
-								isSendingFile = false;
+								client.addDataPackage(new DataPackage("send_file", 1));
+								client.removeSentFile(i);
+								i--;
 							}
 						}
-						catch(Exception ex) {}
-					}
-					
-					filesBytes.clear();
+					}		
 				}
 				
 				if(files.size() > 0)
 				{
-					for(File f : files)
+					for(File file : files)
 					{
 						try
 						{
 							byte[] buffer = new byte[8192];
-							long fileSize = f.length();
+							long fileSize = file.length();
 							
-							String fileName = f.getName();
+							String fileName = file.getName();
 							String fileHash = Utils.hashSHA1(Generator.genRandomString(20) + Utils.getCurrentDate());
-							
-							for(ClientThread client : clients)
+							BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
+
+							int read = 0;
+							while((read = bis.read(buffer)) != -1)
 							{
-								try
+								byte[] bytes = new byte[read];
+								System.arraycopy(buffer, 0, bytes, 0, read);
+								
+								FileDataPackage fdp = new FileDataPackage("Server", srvIP, fileHash, fileName, fileSize, read).SetData(bytes);
+								
+								if(clients.size() > 0)
 								{
-									DataPackage dp = new DataPackage("confirm_receive", new FileDataPackage("Server", srvIP, fileHash, fileName, fileSize, 0));
-									client.addDataPackage(dp);
+									for(ClientThread client : clients)
+									{
+										client.addDataPackage(new DataPackage("file_data", fdp));
+									}
+									
+									for(ClientThread client : clients)
+									{
+										int to = 0;
+										while(client.isWaiting() && to < 15000)
+										{
+											to++;											
+											Utils.sleep(1);
+										}
+									}
 								}
-								catch(Exception ex) {}
-							}
-							
-							int to = 0;
-							while(response != clients.size())
-							{
-								to++;
-								if(to == 30000)
+								else
 								{
 									break;
 								}
@@ -720,79 +570,9 @@ public class Server
 								Utils.sleep(1);
 							}
 							
-							isSendingFile = true;
-							
-							try
-							{
-								if(canSendFile.size() > 0)
-								{
-									FileInputStream fis = new FileInputStream(f);
-									BufferedInputStream bis = new BufferedInputStream(fis);
-		
-									int read = 0;
-									boolean close = false;
-									
-									while((read = bis.read(buffer)) != -1 && !close)
-									{
-										byte[] bytes = new byte[read];
-										System.arraycopy(buffer, 0, bytes, 0, read);
-										
-										FileDataPackage fdp = new FileDataPackage("Server", srvIP, fileHash, fileName, fileSize, read).SetData(bytes);
-										
-										if(clients.size() > 0)
-										{
-											for(int x = 0; x < clients.size(); x++)
-											{
-												try
-												{													
-													if(canSendFile.size() == 0)
-													{
-														close = true;
-														break;
-													}
-													
-													if(canSendFile.contains(x))
-													{
-														ClientThread client = clients.get(x);
-
-														client.addDataPackage(new DataPackage("file_data", fdp));
-														canContinueSending = false;
-														
-														int timeout = 0;
-														while(!canContinueSending)
-														{
-															timeout++;
-															if(timeout == 8000)
-															{
-																logText(client.getUsername() + " IP=" + client.getIP() + " has timed out!");
-																
-																canContinueSending = true;
-																canSendFile.remove(new Integer(x));
-															}
-															
-															Utils.sleep(1);
-														}
-													}
-												}
-												catch(Exception ex) {}
-											}
-										}
-										else
-										{
-											break;
-										}
-									}
-									
-									bis.close();
-								}
-							}
-							catch(Exception e) {}
+							bis.close();
 						}
 						catch(Exception ex) {}
-						
-						response = 0;
-						canSendFile.clear();
-						isSendingFile = false;
 					}
 					
 					files.clear();

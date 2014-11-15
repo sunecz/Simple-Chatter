@@ -240,7 +240,7 @@ public class Client
 		{
 			public void actionPerformed(ActionEvent e)
 			{
-				cancelReceiving();
+				cancelReceiving(true);
 			}
 		});
 		
@@ -520,6 +520,8 @@ public class Client
 	private static BufferedOutputStream fileBOS = null;
 	private static long downloaded = 0;
 	
+	private static boolean isWaiting = false;
+	
 	private static Runnable receiveFiles = new Runnable()
 	{
 		@Override
@@ -547,6 +549,10 @@ public class Client
 						{
 							confirmReceiveFileData = (FileDataPackage) dp.OBJECT;
 							confirmReceiveFile = true;
+						}
+						else if(dp.OBJECT_NAME.equals("send_file"))
+						{
+							isWaiting = false;
 						}
 
 						sendFileStatus(s);
@@ -690,49 +696,48 @@ public class Client
 						{
 							try
 							{
-								File f = files.get(i);
+								File file = files.get(i);
 								
 								byte[] buffer = new byte[8192];
-								long fileSize = f.length();
+								long fileSize = file.length();
 								
-								String fileName = f.getName();
+								String fileName = file.getName();
 								String fileHash = Utils.hashSHA1(Generator.genRandomString(20) + Utils.getCurrentDate());
-								
-								try
+								BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
+	
+								int read = 0;
+								while((read = bis.read(buffer)) != -1)
 								{
-									FileInputStream fis = new FileInputStream(f);
-									BufferedInputStream bis = new BufferedInputStream(fis);
-		
-									int read = 0;
-									boolean close = false;
+									byte[] bytes = new byte[read];
+									System.arraycopy(buffer, 0, bytes, 0, read);
 									
-									while((read = bis.read(buffer)) != -1 && !close)
+									FileDataPackage fdp = new FileDataPackage(username, srvIP, fileHash, fileName, fileSize, read).SetData(bytes);
+									
+									try
 									{
-										byte[] bytes = new byte[read];
-										System.arraycopy(buffer, 0, bytes, 0, read);
-										
-										FileDataPackage fdp = new FileDataPackage(username, srvIP, fileHash, fileName, fileSize, read).SetData(bytes);
-										
-										try
+										if(client_state == 0)
 										{
-											if(client_state == 0)
-											{
-												oos = new ObjectOutputStream(new BufferedOutputStream(socket_files.getOutputStream()));
-												oos.writeObject(new DataPackage("user_file_data", fdp));
-												oos.flush();
-											}
-											else
-											{
-												disconnect();
-											}
+											oos = new ObjectOutputStream(new BufferedOutputStream(socket_files.getOutputStream()));
+											oos.writeObject(new DataPackage("user_file_data", fdp));
+											oos.flush();
 										}
-										catch(Exception ex) {}
+										else
+										{
+											disconnect();
+										}
+									}
+									catch(Exception ex) {}
+									
+									while(isWaiting)
+									{
+										Utils.sleep(1);
 									}
 									
-									bis.close();
+									Utils.sleep(1);
 								}
-								catch(Exception e) {}
-
+								
+								bis.close();
+								
 								files.remove(i);
 								i--;
 							}
@@ -746,7 +751,7 @@ public class Client
 		}
 	};
 
-	private static void cancelReceiving()
+	private static void cancelReceiving(boolean smsg)
 	{
 		try
 		{
@@ -762,7 +767,10 @@ public class Client
 		catch(Exception ex) {}
 		finally
 		{
-			JOptionPane.showMessageDialog(null, "File receiving has been canceled!", "Canceled", JOptionPane.INFORMATION_MESSAGE);
+			if(smsg)
+			{
+				JOptionPane.showMessageDialog(null, "File receiving has been canceled!", "Canceled", JOptionPane.INFORMATION_MESSAGE);
+			}
 		}
 	}
 	
@@ -817,8 +825,9 @@ public class Client
 			{
 				socket_messages.close();
 				socket_files.close();
-				
+
 				logText("Client has been disconnected from server " + srvIP + ":" + srvMessagesPort + "!");
+				cancelReceiving(false);
 			}
 			else
 			{

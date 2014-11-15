@@ -12,6 +12,7 @@ public class ClientThread
 	private final Socket socket0;
 	private final Socket socket1;
 	
+	private final String serverIP;
 	private final String clientIP;
 	private final String username;
 	private int client_state;
@@ -19,14 +20,20 @@ public class ClientThread
 	private final ArrayList<DataPackage> messages_received;
 	private final ArrayList<Message> messages_tosend;
 	
-	private final ArrayList<DataPackage> files_received;
 	private final ArrayList<DataPackage> files_tosend;
+	private final ArrayList<String> files_allowed;
+	private final ArrayList<String> files_canceled;
+	private final ArrayList<FileDataPackage> files_sent;
 	
-	public ClientThread(Socket socket0, Socket socket1, String clientIP, String username)
+	private int file_status;
+	private boolean isWaiting;
+	
+	public ClientThread(Socket socket0, Socket socket1, String serverIP, String clientIP, String username)
 	{
 		this.socket0 = socket0;
 		this.socket1 = socket1;
 		
+		this.serverIP = serverIP;
 		this.clientIP = clientIP;
 		this.username = username;
 		this.client_state = 0;
@@ -34,8 +41,13 @@ public class ClientThread
 		this.messages_received = new ArrayList<>();
 		this.messages_tosend = new ArrayList<>();
 		
-		this.files_received = new ArrayList<>();
 		this.files_tosend = new ArrayList<>();
+		this.files_allowed = new ArrayList<>();
+		this.files_canceled = new ArrayList<>();
+		this.files_sent = new ArrayList<>();
+		
+		this.file_status = 0;
+		this.isWaiting = false;
 		
 		new Thread(receiveMessages).start();
 		new Thread(sendMessages).start();
@@ -82,29 +94,33 @@ public class ClientThread
 			{
 				try
 				{
-					if(milliseconds == 50)
+					if(milliseconds == 100)
 					{
 						oos = new ObjectOutputStream(new BufferedOutputStream(socket0.getOutputStream()));
 						oos.writeObject(new DataPackage("client_state", client_state));
 						oos.flush();
 						
 						milliseconds = 0;
+						Utils.sleep(1);
 					}
 					
 					if(messages_tosend.size() > 0)
 					{
-						for(Message msg : messages_tosend)
+						while(messages_tosend.size() > 0)
 						{
 							try
 							{
+								Message msg = messages_tosend.get(0);
+								
 								oos = new ObjectOutputStream(new BufferedOutputStream(socket0.getOutputStream()));
 								oos.writeObject(new DataPackage("message", msg));
 								oos.flush();
 							}
 							catch(Exception ex) {}
+							
+							messages_tosend.remove(0);
+							Utils.sleep(1);
 						}
-	
-						messages_tosend.clear();
 					}
 				}
 				catch(Exception ex) {}
@@ -129,7 +145,20 @@ public class ClientThread
 					ois = new ObjectInputStream(new BufferedInputStream(socket1.getInputStream()));
 					DataPackage dp = (DataPackage) ois.readObject();
 
-					files_received.add(dp);
+					if(dp.OBJECT_NAME.equals("receive_file_data"))
+					{
+						file_status = (int) dp.OBJECT;
+					}
+					else if(dp.OBJECT_NAME.equals("cancel_sending"))
+					{
+						Object[] val = (Object[]) dp.OBJECT;
+						files_canceled.add((String) val[0]);
+					}
+					else if(dp.OBJECT_NAME.equals("user_file_data"))
+					{
+						FileDataPackage fdp = (FileDataPackage) dp.OBJECT;
+						files_sent.add(fdp);
+					}
 				}
 				catch(Exception ex) {}
 				
@@ -149,18 +178,76 @@ public class ClientThread
 			{
 				if(files_tosend.size() > 0)
 				{
-					for(DataPackage dp : files_tosend)
+					while(files_tosend.size() > 0)
 					{
 						try
 						{
-							oos = new ObjectOutputStream(new BufferedOutputStream(socket1.getOutputStream()));
-							oos.writeObject(dp);
-							oos.flush();
+							DataPackage dp = files_tosend.get(0);
+							
+							if(dp.OBJECT_NAME.equals("send_file"))
+							{
+								oos = new ObjectOutputStream(new BufferedOutputStream(socket1.getOutputStream()));
+								oos.writeObject(dp);
+								oos.flush();
+								
+								continue;
+							}
+							
+							FileDataPackage fdp = (FileDataPackage) dp.OBJECT;
+							if(!files_allowed.contains(fdp.FILE_HASH) && !files_canceled.contains(fdp.FILE_HASH))
+							{
+								DataPackage cr = new DataPackage("confirm_receive", new FileDataPackage("Server", serverIP, fdp.FILE_HASH, fdp.FILE_NAME, fdp.FILE_SIZE, 0));
+								
+								oos = new ObjectOutputStream(new BufferedOutputStream(socket1.getOutputStream()));
+								oos.writeObject(cr);
+								oos.flush();
+								
+								int to = 0;
+								while(to < 30000)
+								{
+									if(file_status > 0)
+									{
+										switch(file_status)
+										{
+											case 2: files_allowed.add(fdp.FILE_HASH);	break;
+											case 3: files_canceled.add(fdp.FILE_HASH);	break;
+										}
+										
+										file_status = 0;
+										break;
+									}
+									
+									to++;
+									if(to == 30000)
+									{
+										files_canceled.add(fdp.FILE_HASH);
+									}
+									
+									Utils.sleep(1);
+								}
+							}
+							
+							if(files_allowed.contains(fdp.FILE_HASH) && !files_canceled.contains(fdp.FILE_HASH))
+							{
+								oos = new ObjectOutputStream(new BufferedOutputStream(socket1.getOutputStream()));
+								oos.writeObject(dp);
+								oos.flush();
+
+								isWaiting = true;
+								while(file_status == 0)
+								{
+									Utils.sleep(1);
+								}
+								
+								isWaiting = false;
+								file_status = 0;
+							}
 						}
 						catch(Exception ex) {}
+						
+						files_tosend.remove(0);
+						Utils.sleep(1);
 					}
-
-					files_tosend.clear();
 				}
 				
 				Utils.sleep(1);
@@ -187,20 +274,20 @@ public class ClientThread
 	{
 		messages_received.clear();
 	}
-	
-	public void clearFiles()
-	{
-		files_received.clear();
-	}
-	
+
 	public ArrayList<DataPackage> getReceivedMessages()
 	{
 		return messages_received;
 	}
 	
-	public ArrayList<DataPackage> getReceivedFiles()
+	public void removeSentFile(int index)
 	{
-		return files_received;
+		files_sent.remove(index);
+	}
+	
+	public ArrayList<FileDataPackage> getSentFiles()
+	{
+		return files_sent;
 	}
 	
 	public String getIP()
@@ -216,5 +303,10 @@ public class ClientThread
 	public int getClientState()
 	{
 		return client_state;
+	}
+	
+	public boolean isWaiting()
+	{
+		return isWaiting;
 	}
 }
