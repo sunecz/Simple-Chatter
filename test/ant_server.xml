@@ -5,7 +5,7 @@
     <target name="create_run_jar">
         <jar destfile="E:/GitHub/Simple-Chatter/test/Server.jar" filesetmanifest="mergewithoutmain">
             <manifest>
-                <attribute name="Main-Class" value="net.sune.networking.Server"/>
+                <attribute name="Main-Class" value="sune.apps.simplechatter.Server"/>
                 <attribute name="Class-Path" value="."/>
             </manifest>
         	

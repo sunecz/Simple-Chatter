@@ -1,4 +1,4 @@
-package net.sune.networking;
+package sune.apps.simplechatter;
 import java.io.Serializable;
 
 public class DataPackage implements Serializable
