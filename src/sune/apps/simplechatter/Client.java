@@ -411,14 +411,9 @@ public class Client
 						ois = new ObjectInputStream(new BufferedInputStream(socket_messages.getInputStream()));
 						DataPackage dp = (DataPackage) ois.readObject();
 
-						if(dp.OBJECT_NAME.equals("send_message"))
-						{
-							sendData(dp);
-						}
-						else
-						{
-							received_messages.add(dp);
-						}
+						received_messages.add(dp);
+						sendData(new DataPackage("send_message", 1));
+
 					}
 					catch(Exception e) {}
 				}	
@@ -465,7 +460,6 @@ public class Client
 								}
 								else if(data.OBJECT_NAME.equals("message"))
 								{
-									sendData(new DataPackage("send_message", 1));
 									logText((Message) data.OBJECT);
 								}
 							}

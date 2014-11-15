@@ -447,16 +447,6 @@ public class Server
 							client.addMessage(msg);
 							logText(msg);
 						}
-						
-						for(ClientThread client : clients)
-						{
-							int to = 0;
-							while(client.isWaitingMSG() && to < 15000)
-							{
-								to++;
-								Utils.sleep(1);
-							}
-						}
 					}
 
 					messagesToSend.clear();
@@ -469,16 +459,6 @@ public class Server
 						for(ClientThread client : clients)
 						{
 							client.addMessage(msg);
-						}
-						
-						for(ClientThread client : clients)
-						{
-							int to = 0;
-							while(client.isWaitingMSG() && to < 15000)
-							{
-								to++;
-								Utils.sleep(1);
-							}
 						}
 					}
 					

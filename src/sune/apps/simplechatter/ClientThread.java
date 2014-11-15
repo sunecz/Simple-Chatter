@@ -81,13 +81,7 @@ public class ClientThread
 						messages_received.add(dp);
 					}
 				}
-				catch(Exception ex)
-				{
-					if(client_state == 0)
-					{
-						client_state = 1;
-					}
-				}
+				catch(Exception ex) {}
 				
 				Utils.sleep(1);
 			}
@@ -106,7 +100,7 @@ public class ClientThread
 			{
 				try
 				{
-					if(milliseconds == 100)
+					if(milliseconds == 50)
 					{
 						oos = new ObjectOutputStream(new BufferedOutputStream(socket0.getOutputStream()));
 						oos.writeObject(new DataPackage("client_state", client_state));
