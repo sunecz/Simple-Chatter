@@ -126,7 +126,9 @@ public class ClientThread
 								oos.flush();
 								
 								isWaitingMSG = true;
-								while(isWaitingMSG)
+								int to = 0;
+								
+								while(isWaitingMSG && to < 15000)
 								{
 									Utils.sleep(1);
 								}
