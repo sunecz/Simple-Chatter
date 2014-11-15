@@ -11,6 +11,8 @@
         	
             <fileset dir="E:/GitHub/Simple-Chatter/bin">
             	<exclude name="**/Server.class"/>
+            	<exclude name="**/ClientThread.class"/>
+            	<exclude name="**/Generator.class"/>
             </fileset>
         </jar>
     </target>

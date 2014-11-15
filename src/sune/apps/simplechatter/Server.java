@@ -212,7 +212,7 @@ public class Server
 						}
 						catch(Exception ex)
 						{
-							JOptionPane.showMessageDialog(null, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+							JOptionPane.showMessageDialog(frame, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
 						}
 					}
 				}
@@ -302,7 +302,7 @@ public class Server
 						logText("Server could not be started! Port is already in use!");
 					}
 				}
-				catch(Exception e) {}
+				catch(Exception ex) {}
 			}
 		});
 	}
@@ -316,6 +316,7 @@ public class Server
 	private static ServerSocket srvFiles;
 	
 	private static ArrayList<ClientThread> clients = new ArrayList<ClientThread>();
+	private static boolean shutdown = false;
 	
 	private static ArrayList<Message> messagesToSend = new ArrayList<Message>();
 	private static ArrayList<Message> messagesUserToSend = new ArrayList<Message>();
@@ -409,8 +410,11 @@ public class Server
 									{
 										Message msg = (Message) dp.OBJECT;
 										
-										logText(msg);
 										sendUserMessage(dp);
+										if(!msg.USERNAME.equals("Server"))
+										{
+											logText(msg);
+										}
 									}
 								}
 								catch(Exception ex) {}
@@ -637,7 +641,7 @@ public class Server
 			ClientThread client = clients.get(index);
 			String client_ip = client.getIP();
 			String username = client.getUsername();
-			client.setClientState(1);
+			client.setClientState(shutdown ? 2 : 1);
 			
 			clients.remove(index);
 			list_clients_model.removeElementAt(index);
@@ -654,9 +658,9 @@ public class Server
 	
 	private static void shutdown()
 	{
-		for(int i = 0; i < clients.size(); i++)
+		shutdown = true;
+		for(ClientThread client : clients)
 		{
-			ClientThread client = clients.get(i);
 			client.setClientState(2);
 		}
 	}

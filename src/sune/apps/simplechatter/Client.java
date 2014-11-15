@@ -291,7 +291,7 @@ public class Client
 			new Thread(processFiles).start();
 			new Thread(sendFiles).start();
 		}
-		catch(Exception e) {}
+		catch(Exception ex) {}
 	}
 
 	private static String srvIP = "";
@@ -393,7 +393,7 @@ public class Client
 			}
 			else
 			{
-				JOptionPane.showMessageDialog(null, "Invalid IP address", "Connect to a server", JOptionPane.ERROR_MESSAGE);
+				JOptionPane.showMessageDialog(frame, "Invalid IP address", "Connect to a server", JOptionPane.ERROR_MESSAGE);
 			}
 		}
 	}
@@ -415,12 +415,13 @@ public class Client
 						DataPackage dp = (DataPackage) ois.readObject();
 
 						received_messages.add(dp);
+						
 						if(dp.OBJECT_NAME.equals("message"))
 						{
 							sendData(new DataPackage("send_message", 1));
 						}
 					}
-					catch(Exception e) {}
+					catch(Exception ex) {}
 				}	
 
 				Utils.sleep(1);
@@ -446,11 +447,11 @@ public class Client
 								if(data.OBJECT_NAME.equals("client_state"))
 								{
 									int receive_state = (int) data.OBJECT;
-									
+
 									switch(receive_state)
 									{
-										case 1:	JOptionPane.showMessageDialog(null, "You have been disconnected by the server!", "Disconnected", JOptionPane.INFORMATION_MESSAGE);	break;
-										case 2: JOptionPane.showMessageDialog(null, "Server has been shut down!", "Disconnected", JOptionPane.INFORMATION_MESSAGE);	break;
+										case 1:	JOptionPane.showMessageDialog(frame, "You have been disconnected by the server!", "Disconnected", JOptionPane.INFORMATION_MESSAGE);	break;
+										case 2: JOptionPane.showMessageDialog(frame, "Server has been shut down!", "Disconnected", JOptionPane.INFORMATION_MESSAGE);	break;
 									}
 	
 									if(receive_state != 0)
@@ -468,7 +469,7 @@ public class Client
 									logText((Message) data.OBJECT);
 								}
 							}
-							catch(Exception e) {}
+							catch(Exception ex) {}
 						}
 					
 						received_messages.clear();
@@ -501,7 +502,7 @@ public class Client
 								oos.writeObject(new DataPackage("message", msg, msg.USERNAME, msg.SENDER_IP));
 								oos.flush();
 							}
-							catch(Exception e) {}
+							catch(Exception ex) {}
 						}
 
 						messagesToSend.clear();
@@ -517,7 +518,7 @@ public class Client
 								oos.writeObject(dp);
 								oos.flush();
 							}
-							catch(Exception e) {}
+							catch(Exception ex) {}
 						}
 
 						dataToSend.clear();
@@ -587,7 +588,7 @@ public class Client
 
 						sendFileStatus(s);
 					}
-					catch(Exception e) {}
+					catch(Exception ex) {}
 				}
 				
 				Utils.sleep(1);
@@ -618,7 +619,7 @@ public class Client
 								JFileChooser jfc = new JFileChooser();
 								jfc.setName(fName);
 								
-								if(jfc.showSaveDialog(null) == JFileChooser.APPROVE_OPTION)
+								if(jfc.showSaveDialog(frame) == JFileChooser.APPROVE_OPTION)
 								{
 									String path = jfc.getSelectedFile().getAbsolutePath();
 									FileOutputStream fos = new FileOutputStream(path);
@@ -685,7 +686,7 @@ public class Client
 							}
 						}
 					}
-					catch(Exception e) {}
+					catch(Exception ex) {}
 				}
 					
 				Utils.sleep(1);
@@ -714,7 +715,7 @@ public class Client
 								oos.writeObject(dp);
 								oos.flush();
 							}
-							catch(Exception e) {}
+							catch(Exception ex) {}
 						}
 						
 						fileStatusesToSend.clear();
@@ -751,10 +752,6 @@ public class Client
 											oos.writeObject(new DataPackage("user_file_data", fdp));
 											oos.flush();
 										}
-										else
-										{
-											disconnect();
-										}
 									}
 									catch(Exception ex) {}
 									
@@ -771,7 +768,7 @@ public class Client
 								files.remove(i);
 								i--;
 							}
-							catch(Exception e) {}
+							catch(Exception ex) {}
 						}
 					}
 				}
@@ -799,7 +796,7 @@ public class Client
 		{
 			if(smsg)
 			{
-				JOptionPane.showMessageDialog(null, "File receiving has been canceled!", "Canceled", JOptionPane.INFORMATION_MESSAGE);
+				JOptionPane.showMessageDialog(frame, "File receiving has been canceled!", "Canceled", JOptionPane.INFORMATION_MESSAGE);
 			}
 		}
 	}
