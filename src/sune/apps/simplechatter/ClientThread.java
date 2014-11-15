@@ -27,6 +27,7 @@ public class ClientThread
 	
 	private int file_status;
 	private boolean isWaiting;
+	private boolean isWaitingMSG;
 	
 	public ClientThread(Socket socket0, Socket socket1, String serverIP, String clientIP, String username)
 	{
@@ -48,6 +49,7 @@ public class ClientThread
 		
 		this.file_status = 0;
 		this.isWaiting = false;
+		this.isWaitingMSG = false;
 		
 		new Thread(receiveMessages).start();
 		new Thread(sendMessages).start();
@@ -70,11 +72,21 @@ public class ClientThread
 					ois = new ObjectInputStream(new BufferedInputStream(socket0.getInputStream()));
 					DataPackage dp = (DataPackage) ois.readObject();
 					
-					messages_received.add(dp);
+					if(dp.OBJECT_NAME.equals("send_message"))
+					{
+						isWaitingMSG = false;
+					}
+					else
+					{
+						messages_received.add(dp);
+					}
 				}
 				catch(Exception ex)
 				{
-					client_state = 1;
+					if(client_state == 0)
+					{
+						client_state = 1;
+					}
 				}
 				
 				Utils.sleep(1);
@@ -115,6 +127,12 @@ public class ClientThread
 								oos = new ObjectOutputStream(new BufferedOutputStream(socket0.getOutputStream()));
 								oos.writeObject(new DataPackage("message", msg));
 								oos.flush();
+								
+								isWaitingMSG = true;
+								while(isWaitingMSG)
+								{
+									Utils.sleep(1);
+								}
 							}
 							catch(Exception ex) {}
 							
@@ -308,5 +326,10 @@ public class ClientThread
 	public boolean isWaiting()
 	{
 		return isWaiting;
+	}
+	
+	public boolean isWaitingMSG()
+	{
+		return isWaitingMSG;
 	}
 }

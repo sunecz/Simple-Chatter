@@ -154,6 +154,7 @@ public class Client
 					if(!txtMessage.getText().trim().isEmpty())
 					{
 						sendMessage(txtMessage.getText());
+						txtMessage.setText("");
 					}
 				}
 			}
@@ -178,6 +179,7 @@ public class Client
 					if(!txtMessage.getText().trim().isEmpty())
 					{
 						sendMessage(txtMessage.getText());
+						txtMessage.setText("");
 					}
 				}
 			}
@@ -306,6 +308,7 @@ public class Client
 	private static boolean enableThreads = true;
 	
 	private static ArrayList<DataPackage> received_messages = new ArrayList<DataPackage>();
+	private static ArrayList<DataPackage> dataToSend = new ArrayList<DataPackage>();
 	private static ArrayList<Message> messagesToSend = new ArrayList<Message>();
 	
 	private static void connectToServer(String serverIP, int serverPort, int serverPort2)
@@ -408,7 +411,14 @@ public class Client
 						ois = new ObjectInputStream(new BufferedInputStream(socket_messages.getInputStream()));
 						DataPackage dp = (DataPackage) ois.readObject();
 
-						received_messages.add(dp);
+						if(dp.OBJECT_NAME.equals("send_message"))
+						{
+							sendData(dp);
+						}
+						else
+						{
+							received_messages.add(dp);
+						}
 					}
 					catch(Exception e) {}
 				}	
@@ -455,6 +465,7 @@ public class Client
 								}
 								else if(data.OBJECT_NAME.equals("message"))
 								{
+									sendData(new DataPackage("send_message", 1));
 									logText((Message) data.OBJECT);
 								}
 							}
@@ -494,8 +505,23 @@ public class Client
 							catch(Exception e) {}
 						}
 
-						txtMessage.setText("");
 						messagesToSend.clear();
+					}
+					
+					if(dataToSend.size() > 0)
+					{
+						for(DataPackage dp : dataToSend)
+						{
+							try
+							{
+								oos = new ObjectOutputStream(new BufferedOutputStream(socket_messages.getOutputStream()));
+								oos.writeObject(dp);
+								oos.flush();
+							}
+							catch(Exception e) {}
+						}
+
+						dataToSend.clear();
 					}
 				}
 
@@ -507,6 +533,11 @@ public class Client
 	private static void sendMessage(String msg)
 	{
 		messagesToSend.add(new Message(username, Utils.getCurrentDateFormatted(), msg, localIP));
+	}
+	
+	private static void sendData(DataPackage dp)
+	{
+		dataToSend.add(dp);
 	}
 
 	private static ArrayList<FileDataPackage> received_files = new ArrayList<FileDataPackage>();
