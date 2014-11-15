@@ -379,19 +379,22 @@ public class Client
 	{
 		String strIP = JOptionPane.showInputDialog(frame, "Server IP", "Connect to a server", JOptionPane.QUESTION_MESSAGE);
 		
-		if(strIP != null && !strIP.isEmpty() && Utils.isValidIP(strIP))
+		if(strIP != null && !strIP.isEmpty())
 		{
-			new Thread(new Runnable()
+			if(Utils.isValidIP(strIP))
 			{
-				public void run()
+				new Thread(new Runnable()
 				{
-					connectToServer(strIP, srvMessagesPort, srvFilesPort);
-				}
-			}).start();	
-		}
-		else
-		{
-			JOptionPane.showMessageDialog(null, "Invalid IP address", "Connect to a server", JOptionPane.ERROR_MESSAGE);
+					public void run()
+					{
+						connectToServer(strIP, srvMessagesPort, srvFilesPort);
+					}
+				}).start();	
+			}
+			else
+			{
+				JOptionPane.showMessageDialog(null, "Invalid IP address", "Connect to a server", JOptionPane.ERROR_MESSAGE);
+			}
 		}
 	}
 	
@@ -412,8 +415,10 @@ public class Client
 						DataPackage dp = (DataPackage) ois.readObject();
 
 						received_messages.add(dp);
-						sendData(new DataPackage("send_message", 1));
-
+						if(dp.OBJECT_NAME.equals("message"))
+						{
+							sendData(new DataPackage("send_message", 1));
+						}
 					}
 					catch(Exception e) {}
 				}	
