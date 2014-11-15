@@ -308,8 +308,7 @@ public class Client
 	private static boolean enableThreads = true;
 	
 	private static ArrayList<DataPackage> received_messages = new ArrayList<DataPackage>();
-	private static ArrayList<DataPackage> dataToSend = new ArrayList<DataPackage>();
-	private static ArrayList<Message> messagesToSend = new ArrayList<Message>();
+	private static ArrayList<DataPackage> messagesToSend = new ArrayList<DataPackage>();
 	
 	private static void connectToServer(String serverIP, int serverPort, int serverPort2)
 	{
@@ -415,7 +414,11 @@ public class Client
 						DataPackage dp = (DataPackage) ois.readObject();
 
 						received_messages.add(dp);
-						sendData(new DataPackage("send_message", 1));
+						
+						if(dp.OBJECT_NAME.equals("message"))
+						{
+							sendData(new DataPackage("send_message", 1));
+						}
 					}
 					catch(Exception ex) {}
 				}	
@@ -490,23 +493,7 @@ public class Client
 				{
 					if(messagesToSend.size() > 0)
 					{
-						for(Message msg : messagesToSend)
-						{
-							try
-							{
-								oos = new ObjectOutputStream(new BufferedOutputStream(socket_messages.getOutputStream()));
-								oos.writeObject(new DataPackage("message", msg, msg.USERNAME, msg.SENDER_IP));
-								oos.flush();
-							}
-							catch(Exception ex) {}
-						}
-
-						messagesToSend.clear();
-					}
-					
-					if(dataToSend.size() > 0)
-					{
-						for(DataPackage dp : dataToSend)
+						for(DataPackage dp : messagesToSend)
 						{
 							try
 							{
@@ -517,7 +504,7 @@ public class Client
 							catch(Exception ex) {}
 						}
 
-						dataToSend.clear();
+						messagesToSend.clear();
 					}
 				}
 
@@ -528,14 +515,14 @@ public class Client
 	
 	private static void sendMessage(String msg)
 	{
-		messagesToSend.add(new Message(username, Utils.getCurrentDateFormatted(), msg, localIP));
+		messagesToSend.add(new DataPackage("message", new Message(username, Utils.getCurrentDateFormatted(), msg, localIP), username, localIP));
 	}
 	
 	private static void sendData(DataPackage dp)
 	{
-		dataToSend.add(dp);
+		messagesToSend.add(dp);
 	}
-
+	
 	private static ArrayList<FileDataPackage> received_files = new ArrayList<FileDataPackage>();
 	private static ArrayList<DataPackage> fileStatusesToSend = new ArrayList<DataPackage>();
 	private static ArrayList<String> fileHashes = new ArrayList<String>();
