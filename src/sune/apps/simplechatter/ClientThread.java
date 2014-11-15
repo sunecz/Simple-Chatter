@@ -130,6 +130,7 @@ public class ClientThread
 								
 								while(isWaitingMSG && to < 15000)
 								{
+									to++;
 									Utils.sleep(1);
 								}
 							}

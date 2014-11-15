@@ -318,9 +318,7 @@ public class Server
 	private static ArrayList<ClientThread> clients = new ArrayList<ClientThread>();
 	private static boolean shutdown = false;
 	
-	private static ArrayList<Message> messagesToSend = new ArrayList<Message>();
-	private static ArrayList<Message> messagesUserToSend = new ArrayList<Message>();
-	
+	private static ArrayList<Message> messagesToSend = new ArrayList<Message>();	
 	private static ArrayList<File> files = new ArrayList<File>();
 
 	private static Runnable acceptMessages = new Runnable()
@@ -404,20 +402,10 @@ public class Server
 						{
 							for(DataPackage dp : messages)
 							{
-								try
+								if(dp.OBJECT_NAME.equals("message"))
 								{
-									if(dp.OBJECT_NAME.equals("message"))
-									{
-										Message msg = (Message) dp.OBJECT;
-										
-										sendUserMessage(dp);
-										if(!msg.USERNAME.equals("Server"))
-										{
-											logText(msg);
-										}
-									}
+									sendUserMessage(dp);
 								}
-								catch(Exception ex) {}
 							}
 							
 							client.clearMessages();
@@ -456,19 +444,6 @@ public class Server
 					messagesToSend.clear();
 				}
 				
-				if(messagesUserToSend.size() > 0)
-				{
-					for(Message msg : messagesUserToSend)
-					{
-						for(ClientThread client : clients)
-						{
-							client.addMessage(msg);
-						}
-					}
-					
-					messagesUserToSend.clear();
-				}
-				
 				Utils.sleep(1);
 			}
 		}
@@ -481,7 +456,7 @@ public class Server
 	
 	private static void sendUserMessage(DataPackage dp)
 	{
-		messagesUserToSend.add((Message) dp.OBJECT);
+		messagesToSend.add((Message) dp.OBJECT);
 	}
 	
 	private static Runnable sendFiles = new Runnable()
