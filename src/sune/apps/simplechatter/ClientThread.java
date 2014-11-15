@@ -103,16 +103,6 @@ public class ClientThread
 			{
 				try
 				{
-					if(milliseconds >= 50)
-					{
-						oos = new ObjectOutputStream(new BufferedOutputStream(socket0.getOutputStream()));
-						oos.writeObject(new DataPackage("client_state", client_state));
-						oos.flush();
-						
-						milliseconds = 0;
-						Utils.sleep(1);
-					}
-					
 					if(messages_tosend.size() > 0)
 					{
 						while(messages_tosend.size() > 0)
@@ -139,6 +129,15 @@ public class ClientThread
 							messages_tosend.remove(0);
 							Utils.sleep(1);
 						}
+					}
+					
+					if(milliseconds >= 50)
+					{
+						oos = new ObjectOutputStream(new BufferedOutputStream(socket0.getOutputStream()));
+						oos.writeObject(new DataPackage("client_state", client_state));
+						oos.flush();
+						
+						milliseconds = 0;
 					}
 				}
 				catch(Exception ex) {}
