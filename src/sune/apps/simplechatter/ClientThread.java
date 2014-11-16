@@ -15,14 +15,15 @@ public class ClientThread
 	private final String serverIP;
 	private final String clientIP;
 	private final String username;
-
+	private int client_state;
+	
 	private final ArrayList<DataPackage> messages_received;
-	private final ArrayList<Message> messages_tosend;
+	private final ArrayList<DataPackage> messages_tosend;
 	
 	private final ArrayList<DataPackage> files_tosend;
+	private final ArrayList<FileDataPackage> files_sent;
 	private final ArrayList<String> files_allowed;
 	private final ArrayList<String> files_canceled;
-	private final ArrayList<FileDataPackage> files_sent;
 	
 	private int file_status;
 	private boolean isWaiting;
@@ -36,6 +37,7 @@ public class ClientThread
 		this.serverIP = serverIP;
 		this.clientIP = clientIP;
 		this.username = username;
+		this.client_state = 0;
 
 		this.messages_received = new ArrayList<>();
 		this.messages_tosend = new ArrayList<>();
@@ -81,7 +83,7 @@ public class ClientThread
 				}
 				catch(Exception ex)
 				{
-					disconnect();
+					client_state = 1;
 				}
 				
 				Utils.sleep(1);
@@ -95,30 +97,40 @@ public class ClientThread
 		public void run()
 		{
 			ObjectOutputStream oos;
-
+			int timeout = 0;
+			
 			while(true)
 			{
 				try
 				{
+					if(timeout >= 1000)
+					{
+						messages_tosend.add(new DataPackage("client_state", client_state));
+						timeout = 0;
+					}
+					
 					if(messages_tosend.size() > 0)
 					{
 						while(messages_tosend.size() > 0)
 						{
 							try
 							{
-								Message msg = messages_tosend.get(0);
+								DataPackage dp = messages_tosend.get(0);
 								
 								oos = new ObjectOutputStream(new BufferedOutputStream(socket0.getOutputStream()));
-								oos.writeObject(new DataPackage("message", msg));
+								oos.writeObject(dp);
 								oos.flush();
 								
-								isWaitingMSG = true;
-								int to = 0;
-								
-								while(isWaitingMSG && to < 15000)
+								if(!dp.OBJECT_NAME.equals("client_state"))
 								{
-									to++;
-									Utils.sleep(1);
+									isWaitingMSG = true;
+									int to = 0;
+									
+									while(isWaitingMSG && to < 15000)
+									{
+										to++;
+										Utils.sleep(1);
+									}
 								}
 							}
 							catch(Exception ex) {}
@@ -130,6 +142,7 @@ public class ClientThread
 				}
 				catch(Exception ex) {}
 
+				timeout++;
 				Utils.sleep(1);
 			}
 		}
@@ -259,24 +272,19 @@ public class ClientThread
 		}
 	};
 	
-	public void disconnect()
+	public void addMessage(DataPackage dp)
 	{
-		try
-		{
-			socket0.close();
-			socket1.close();
-		}
-		catch(Exception ex) {}
-	}
-	
-	public void addMessage(Message msg)
-	{
-		messages_tosend.add(msg);
+		messages_tosend.add(dp);
 	}
 	
 	public void addDataPackage(DataPackage dp)
 	{
 		files_tosend.add(dp);
+	}
+	
+	public void setClientState(int state)
+	{
+		client_state = state;
 	}
 	
 	public void removeSentFile(int index)
@@ -307,6 +315,11 @@ public class ClientThread
 	public String getUsername()
 	{
 		return username;
+	}
+	
+	public int getClientState()
+	{
+		return client_state;
 	}
 	
 	public boolean isWaiting()

@@ -303,9 +303,9 @@ public class Client
 	private static Socket socket_messages;
 	private static Socket socket_files;
 
+	private static int client_state = 0;
 	private static String username = "Unknown";
 	private static boolean enableThreads = true;
-	private static boolean disconnected = true;
 	
 	private static ArrayList<DataPackage> received_messages = new ArrayList<DataPackage>();
 	private static ArrayList<DataPackage> messagesToSend = new ArrayList<DataPackage>();
@@ -363,8 +363,8 @@ public class Client
 						logText(data);
 					}
 					
+					client_state = 0;
 					enableThreads = true;
-					disconnected = false;
 				}
 				catch(Exception ex) {}
 			}
@@ -421,13 +421,7 @@ public class Client
 							sendData(new DataPackage("send_message", 1));
 						}
 					}
-					catch(Exception ex)
-					{
-						if(!disconnected)
-						{
-							disconnect();
-						}
-					}
+					catch(Exception ex) {}
 				}	
 
 				Utils.sleep(1);
@@ -446,15 +440,37 @@ public class Client
 				{
 					if(received_messages.size() > 0)
 					{
-						for(DataPackage data : received_messages)
+						while(received_messages.size() > 0)
 						{
-							if(data.OBJECT_NAME.equals("message"))
+							DataPackage dp = received_messages.get(0);
+							
+							if(dp.OBJECT_NAME.equals("client_state"))
 							{
-								logText((Message) data.OBJECT);
+								if(client_state == 0)
+								{
+									int state = (int) dp.OBJECT;
+									client_state = state;
+									
+									switch(state)
+									{
+										case 1:	JOptionPane.showMessageDialog(frame, "You have been disconnected from the server!", "Disconnected", JOptionPane.INFORMATION_MESSAGE); break;
+										case 2:	JOptionPane.showMessageDialog(frame, "Server has been shut down!", "Disconnected", JOptionPane.INFORMATION_MESSAGE); break;
+									}
+	
+									if(state != 0)
+									{
+										disconnect();
+									}
+								}
 							}
+							if(dp.OBJECT_NAME.equals("message"))
+							{
+								logText((Message) dp.OBJECT);
+							}
+							
+							received_messages.remove(0);
+							Utils.sleep(1);
 						}
-					
-						received_messages.clear();
 					}
 				}
 
@@ -480,9 +496,12 @@ public class Client
 						{
 							try
 							{
-								oos = new ObjectOutputStream(new BufferedOutputStream(socket_messages.getOutputStream()));
-								oos.writeObject(dp);
-								oos.flush();
+								if(client_state == 0)
+								{
+									oos = new ObjectOutputStream(new BufferedOutputStream(socket_messages.getOutputStream()));
+									oos.writeObject(dp);
+									oos.flush();
+								}
 							}
 							catch(Exception ex) {}
 						}
@@ -712,9 +731,12 @@ public class Client
 									
 									try
 									{
-										oos = new ObjectOutputStream(new BufferedOutputStream(socket_files.getOutputStream()));
-										oos.writeObject(new DataPackage("user_file_data", fdp));
-										oos.flush();
+										if(client_state == 0)
+										{
+											oos = new ObjectOutputStream(new BufferedOutputStream(socket_files.getOutputStream()));
+											oos.writeObject(new DataPackage("user_file_data", fdp));
+											oos.flush();
+										}
 									}
 									catch(Exception ex) {}
 									
@@ -813,12 +835,10 @@ public class Client
 		{
 			if(!socket_messages.isClosed() && !socket_files.isClosed())
 			{
-				disconnected = true;
 				socket_messages.close();
 				socket_files.close();
+				enableThreads = false;
 
-				JOptionPane.showMessageDialog(frame, "You have been disconnected from the server!", "Disconnected", JOptionPane.INFORMATION_MESSAGE);
-				
 				logText("Client has been disconnected from server " + srvIP + ":" + srvMessagesPort + "!");
 				cancelReceiving(false);
 			}

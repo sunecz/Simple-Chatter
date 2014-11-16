@@ -316,6 +316,7 @@ public class Server
 	private static ServerSocket srvFiles;
 	
 	private static ArrayList<ClientThread> clients = new ArrayList<ClientThread>();
+	private static boolean shutdown = false;
 	
 	private static ArrayList<Message> messagesToSend = new ArrayList<Message>();	
 	private static ArrayList<File> files = new ArrayList<File>();
@@ -392,19 +393,28 @@ public class Server
 				for(int i = 0; i < clients.size(); i++)
 				{
 					ClientThread client = clients.get(i);
-					ArrayList<DataPackage> messages = client.getReceivedMessages();
 					
-					if(messages.size() > 0)
+					if(client.getClientState() == 0)
 					{
-						for(DataPackage dp : messages)
-						{
-							if(dp.OBJECT_NAME.equals("message"))
-							{
-								sendUserMessage(dp);
-							}
-						}
+						ArrayList<DataPackage> messages = client.getReceivedMessages();
 						
-						client.clearMessages();
+						if(messages.size() > 0)
+						{
+							for(DataPackage dp : messages)
+							{
+								if(dp.OBJECT_NAME.equals("message"))
+								{
+									sendUserMessage(dp);
+								}
+							}
+							
+							client.clearMessages();
+						}
+					}
+					else
+					{
+						disconnectClient(i);
+						i--;
 					}
 				}
 					
@@ -424,12 +434,13 @@ public class Server
 				{
 					for(Message msg : messagesToSend)
 					{
+						DataPackage dp = new DataPackage("message", msg);
+						logText(msg);
+						
 						for(ClientThread client : clients)
 						{
-							client.addMessage(msg);
+							client.addMessage(dp);
 						}
-						
-						logText(msg);
 					}
 
 					messagesToSend.clear();
@@ -607,7 +618,7 @@ public class Server
 			ClientThread client = clients.get(index);
 			String client_ip = client.getIP();
 			String username = client.getUsername();
-			client.disconnect();
+			client.setClientState(shutdown ? 2 : 1);
 			
 			clients.remove(index);
 			list_clients_model.removeElementAt(index);
@@ -624,9 +635,10 @@ public class Server
 	
 	private static void shutdown()
 	{
+		shutdown = true;
 		for(ClientThread client : clients)
 		{
-			client.disconnect();
+			client.setClientState(2);
 		}
 	}
 }
