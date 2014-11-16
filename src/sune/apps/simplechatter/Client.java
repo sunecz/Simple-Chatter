@@ -554,12 +554,11 @@ public class Client
 						ois = new ObjectInputStream(new BufferedInputStream(socket_files.getInputStream()));
 						DataPackage dp = (DataPackage) ois.readObject();
 
-						int s = 0;
 						if(dp.OBJECT_NAME.equals("file_data"))
 						{
 							FileDataPackage fdp = (FileDataPackage) dp.OBJECT;
 							received_files.add(fdp);
-							s = 1;
+							sendFileStatus(1);
 						}
 						else if(dp.OBJECT_NAME.equals("confirm_receive"))
 						{
@@ -570,8 +569,6 @@ public class Client
 						{
 							isWaiting = false;
 						}
-
-						sendFileStatus(s);
 					}
 					catch(Exception ex) {}
 				}
