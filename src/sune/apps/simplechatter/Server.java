@@ -316,7 +316,6 @@ public class Server
 	private static ServerSocket srvFiles;
 	
 	private static ArrayList<ClientThread> clients = new ArrayList<ClientThread>();
-	private static boolean shutdown = false;
 	
 	private static ArrayList<Message> messagesToSend = new ArrayList<Message>();	
 	private static ArrayList<File> files = new ArrayList<File>();
@@ -393,28 +392,19 @@ public class Server
 				for(int i = 0; i < clients.size(); i++)
 				{
 					ClientThread client = clients.get(i);
+					ArrayList<DataPackage> messages = client.getReceivedMessages();
 					
-					if(client.getClientState() == 0)
+					if(messages.size() > 0)
 					{
-						ArrayList<DataPackage> messages = client.getReceivedMessages();
-						
-						if(messages.size() > 0)
+						for(DataPackage dp : messages)
 						{
-							for(DataPackage dp : messages)
+							if(dp.OBJECT_NAME.equals("message"))
 							{
-								if(dp.OBJECT_NAME.equals("message"))
-								{
-									sendUserMessage(dp);
-								}
+								sendUserMessage(dp);
 							}
-							
-							client.clearMessages();
 						}
-					}
-					else
-					{
-						disconnectClient(i);
-						i--;
+						
+						client.clearMessages();
 					}
 				}
 					
@@ -617,7 +607,7 @@ public class Server
 			ClientThread client = clients.get(index);
 			String client_ip = client.getIP();
 			String username = client.getUsername();
-			client.setClientState(shutdown ? 2 : 1);
+			client.disconnect();
 			
 			clients.remove(index);
 			list_clients_model.removeElementAt(index);
@@ -634,10 +624,9 @@ public class Server
 	
 	private static void shutdown()
 	{
-		shutdown = true;
 		for(ClientThread client : clients)
 		{
-			client.setClientState(2);
+			client.disconnect();
 		}
 	}
 }

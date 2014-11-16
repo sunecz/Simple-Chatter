@@ -303,9 +303,9 @@ public class Client
 	private static Socket socket_messages;
 	private static Socket socket_files;
 
-	private static int client_state = 0;
 	private static String username = "Unknown";
 	private static boolean enableThreads = true;
+	private static boolean disconnected = true;
 	
 	private static ArrayList<DataPackage> received_messages = new ArrayList<DataPackage>();
 	private static ArrayList<DataPackage> messagesToSend = new ArrayList<DataPackage>();
@@ -364,6 +364,7 @@ public class Client
 					}
 					
 					enableThreads = true;
+					disconnected = false;
 				}
 				catch(Exception ex) {}
 			}
@@ -420,7 +421,13 @@ public class Client
 							sendData(new DataPackage("send_message", 1));
 						}
 					}
-					catch(Exception ex) {}
+					catch(Exception ex)
+					{
+						if(!disconnected)
+						{
+							disconnect();
+						}
+					}
 				}	
 
 				Utils.sleep(1);
@@ -441,34 +448,10 @@ public class Client
 					{
 						for(DataPackage data : received_messages)
 						{
-							try
+							if(data.OBJECT_NAME.equals("message"))
 							{
-								if(data.OBJECT_NAME.equals("client_state"))
-								{
-									int receive_state = (int) data.OBJECT;
-
-									switch(receive_state)
-									{
-										case 1:	JOptionPane.showMessageDialog(frame, "You have been disconnected by the server!", "Disconnected", JOptionPane.INFORMATION_MESSAGE);	break;
-										case 2: JOptionPane.showMessageDialog(frame, "Server has been shut down!", "Disconnected", JOptionPane.INFORMATION_MESSAGE);	break;
-									}
-	
-									if(receive_state != 0)
-									{
-										received_messages.clear();
-										disconnect();
-										
-										break;
-									}
-									
-									client_state = receive_state;
-								}
-								else if(data.OBJECT_NAME.equals("message"))
-								{
-									logText((Message) data.OBJECT);
-								}
+								logText((Message) data.OBJECT);
 							}
-							catch(Exception ex) {}
 						}
 					
 						received_messages.clear();
@@ -729,12 +712,9 @@ public class Client
 									
 									try
 									{
-										if(client_state == 0)
-										{
-											oos = new ObjectOutputStream(new BufferedOutputStream(socket_files.getOutputStream()));
-											oos.writeObject(new DataPackage("user_file_data", fdp));
-											oos.flush();
-										}
+										oos = new ObjectOutputStream(new BufferedOutputStream(socket_files.getOutputStream()));
+										oos.writeObject(new DataPackage("user_file_data", fdp));
+										oos.flush();
 									}
 									catch(Exception ex) {}
 									
@@ -833,9 +813,12 @@ public class Client
 		{
 			if(!socket_messages.isClosed() && !socket_files.isClosed())
 			{
+				disconnected = true;
 				socket_messages.close();
 				socket_files.close();
 
+				JOptionPane.showMessageDialog(frame, "You have been disconnected from the server!", "Disconnected", JOptionPane.INFORMATION_MESSAGE);
+				
 				logText("Client has been disconnected from server " + srvIP + ":" + srvMessagesPort + "!");
 				cancelReceiving(false);
 			}

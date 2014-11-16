@@ -15,8 +15,7 @@ public class ClientThread
 	private final String serverIP;
 	private final String clientIP;
 	private final String username;
-	private int client_state;
-	
+
 	private final ArrayList<DataPackage> messages_received;
 	private final ArrayList<Message> messages_tosend;
 	
@@ -37,8 +36,7 @@ public class ClientThread
 		this.serverIP = serverIP;
 		this.clientIP = clientIP;
 		this.username = username;
-		this.client_state = 0;
-		
+
 		this.messages_received = new ArrayList<>();
 		this.messages_tosend = new ArrayList<>();
 		
@@ -83,7 +81,7 @@ public class ClientThread
 				}
 				catch(Exception ex)
 				{
-					client_state = 1;
+					disconnect();
 				}
 				
 				Utils.sleep(1);
@@ -97,8 +95,7 @@ public class ClientThread
 		public void run()
 		{
 			ObjectOutputStream oos;
-			int milliseconds = 0;
-			
+
 			while(true)
 			{
 				try
@@ -130,19 +127,9 @@ public class ClientThread
 							Utils.sleep(1);
 						}
 					}
-					
-					if(milliseconds >= 50)
-					{
-						oos = new ObjectOutputStream(new BufferedOutputStream(socket0.getOutputStream()));
-						oos.writeObject(new DataPackage("client_state", client_state));
-						oos.flush();
-						
-						milliseconds = 0;
-					}
 				}
 				catch(Exception ex) {}
-				
-				milliseconds++;
+
 				Utils.sleep(1);
 			}
 		}
@@ -272,6 +259,16 @@ public class ClientThread
 		}
 	};
 	
+	public void disconnect()
+	{
+		try
+		{
+			socket0.close();
+			socket1.close();
+		}
+		catch(Exception ex) {}
+	}
+	
 	public void addMessage(Message msg)
 	{
 		messages_tosend.add(msg);
@@ -282,9 +279,9 @@ public class ClientThread
 		files_tosend.add(dp);
 	}
 	
-	public void setClientState(int state)
+	public void removeSentFile(int index)
 	{
-		client_state = state;
+		files_sent.remove(index);
 	}
 	
 	public void clearMessages()
@@ -296,12 +293,7 @@ public class ClientThread
 	{
 		return messages_received;
 	}
-	
-	public void removeSentFile(int index)
-	{
-		files_sent.remove(index);
-	}
-	
+
 	public ArrayList<FileDataPackage> getSentFiles()
 	{
 		return files_sent;
@@ -315,11 +307,6 @@ public class ClientThread
 	public String getUsername()
 	{
 		return username;
-	}
-	
-	public int getClientState()
-	{
-		return client_state;
 	}
 	
 	public boolean isWaiting()
