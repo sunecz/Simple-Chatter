@@ -737,6 +737,7 @@ public class Client
 									}
 									catch(Exception ex) {}
 									
+									isWaiting = true;
 									while(isWaiting)
 									{
 										Utils.sleep(1);

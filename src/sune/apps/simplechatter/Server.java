@@ -468,7 +468,7 @@ public class Server
 		{
 			while(true)
 			{
-				if(clients.size() > 1)
+				if(clients.size() > 0)
 				{
 					for(ClientThread client : clients)
 					{
@@ -476,19 +476,19 @@ public class Server
 						
 						if(sent_files.size() > 0)
 						{
-							for(int i = 0; i < sent_files.size(); i++)
-							{
-								FileDataPackage fdp = (FileDataPackage) sent_files.get(i);
-								
-								for(ClientThread cli : clients)
-								{
-									if(!cli.getIP().equals(client.getIP()))
-									{
-										cli.addDataPackage(new DataPackage("file_data", fdp));
-									}
-								}
+							FileDataPackage fdp = (FileDataPackage) sent_files.get(0);
 							
-								for(ClientThread cli : clients)
+							for(ClientThread cli : clients)
+							{
+								if(!cli.getIP().equals(client.getIP()))
+								{
+									cli.addDataPackage(new DataPackage("file_data", fdp));
+								}
+							}
+						
+							for(ClientThread cli : clients)
+							{
+								if(!cli.getIP().equals(client.getIP()))
 								{
 									int to = 0;
 									while(cli.isWaiting() && to < 15000)
@@ -497,11 +497,10 @@ public class Server
 										Utils.sleep(1);
 									}
 								}
-								
-								client.addDataPackage(new DataPackage("send_file", 1));
-								client.removeSentFile(i);
-								i--;
 							}
+							
+							client.addDataPackage(new DataPackage("send_file", 1));
+							client.removeSentFile(0);
 						}
 					}		
 				}
