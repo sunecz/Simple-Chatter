@@ -12,7 +12,6 @@ public class ClientThread
 	private final Socket socket0;
 	private final Socket socket1;
 	
-	private final String serverIP;
 	private final String clientIP;
 	private final String username;
 	private int client_state;
@@ -29,12 +28,11 @@ public class ClientThread
 	private boolean isWaiting;
 	private boolean isWaitingMSG;
 	
-	public ClientThread(Socket socket0, Socket socket1, String serverIP, String clientIP, String username)
+	public ClientThread(Socket socket0, Socket socket1, String clientIP, String username)
 	{
 		this.socket0 = socket0;
 		this.socket1 = socket1;
-		
-		this.serverIP = serverIP;
+
 		this.clientIP = clientIP;
 		this.username = username;
 		this.client_state = 0;
@@ -75,6 +73,15 @@ public class ClientThread
 					if(dp.OBJECT_NAME.equals("send_message"))
 					{
 						isWaitingMSG = false;
+					}
+					else if(dp.OBJECT_NAME.equals("receive_file_data"))
+					{
+						file_status = (int) dp.OBJECT;
+					}
+					else if(dp.OBJECT_NAME.equals("cancel_sending"))
+					{
+						Object[] val = (Object[]) dp.OBJECT;
+						files_canceled.add((String) val[0]);
 					}
 					else
 					{
@@ -121,7 +128,7 @@ public class ClientThread
 								oos.writeObject(dp);
 								oos.flush();
 								
-								if(!dp.OBJECT_NAME.equals("client_state"))
+								if(!dp.OBJECT_NAME.equals("client_state") && !dp.OBJECT_NAME.equals("send_file"))
 								{
 									isWaitingMSG = true;
 									int to = 0;
@@ -162,16 +169,7 @@ public class ClientThread
 					ois = new ObjectInputStream(new BufferedInputStream(socket1.getInputStream()));
 					DataPackage dp = (DataPackage) ois.readObject();
 
-					if(dp.OBJECT_NAME.equals("receive_file_data"))
-					{
-						file_status = (int) dp.OBJECT;
-					}
-					else if(dp.OBJECT_NAME.equals("cancel_sending"))
-					{
-						Object[] val = (Object[]) dp.OBJECT;
-						files_canceled.add((String) val[0]);
-					}
-					else if(dp.OBJECT_NAME.equals("user_file_data"))
+					if(dp.OBJECT_NAME.equals("user_file_data"))
 					{
 						FileDataPackage fdp = (FileDataPackage) dp.OBJECT;
 						files_sent.add(fdp);
@@ -200,20 +198,11 @@ public class ClientThread
 						try
 						{
 							DataPackage dp = files_tosend.get(0);
-							
-							if(dp.OBJECT_NAME.equals("send_file"))
-							{
-								oos = new ObjectOutputStream(new BufferedOutputStream(socket1.getOutputStream()));
-								oos.writeObject(dp);
-								oos.flush();
-								
-								continue;
-							}
-							
 							FileDataPackage fdp = (FileDataPackage) dp.OBJECT;
+							
 							if(!files_allowed.contains(fdp.FILE_HASH) && !files_canceled.contains(fdp.FILE_HASH))
 							{
-								DataPackage cr = new DataPackage("confirm_receive", new FileDataPackage("Server", serverIP, fdp.FILE_HASH, fdp.FILE_NAME, fdp.FILE_SIZE, 0));
+								DataPackage cr = new DataPackage("confirm_receive", new FileDataPackage(fdp.USERNAME, fdp.IP, fdp.FILE_HASH, fdp.FILE_NAME, fdp.FILE_SIZE, 0));
 								
 								oos = new ObjectOutputStream(new BufferedOutputStream(socket1.getOutputStream()));
 								oos.writeObject(cr);
@@ -302,6 +291,16 @@ public class ClientThread
 		return messages_received;
 	}
 
+	public ArrayList<String> getAllowedFiles()
+	{
+		return files_allowed;
+	}
+	
+	public ArrayList<String> getCanceledFiles()
+	{
+		return files_canceled;
+	}
+	
 	public ArrayList<FileDataPackage> getSentFiles()
 	{
 		return files_sent;
@@ -320,6 +319,11 @@ public class ClientThread
 	public int getClientState()
 	{
 		return client_state;
+	}
+	
+	public int getFileStatus()
+	{
+		return file_status;
 	}
 	
 	public boolean isWaiting()

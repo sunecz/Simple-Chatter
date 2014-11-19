@@ -6,6 +6,7 @@ import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
@@ -16,8 +17,6 @@ import java.awt.event.WindowListener;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
@@ -29,36 +28,30 @@ import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
-import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JProgressBar;
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
+import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableModel;
 
 public class Client
 {
 	private static JFrame frame;
-	private static JPanel panel0;
-	private static JLabel lblMessages;
-	private static JPanel panel1;
+	private static JPanel mainPanel;
 	private static JTextArea textArea;
-	private static JScrollPane scrollPane;
+	private static JScrollPane scrollPane1;
 	private static JPanel panel2;
 	private static JTextField txtMessage;
 	private static JPanel subPanel0;
 	private static JButton btnSend;
 	private static JPanel subPanel1;
-	private static JPanel subPanel2;
-	private static JLabel lblDownloadInfo;
-	private static JPanel subPanel3;
-	private static JProgressBar prgbarDownload;
 	private static JMenuBar menuBar;
 	private static JMenu mnClient;
 	private static JMenuItem mntmConnect;
@@ -66,71 +59,82 @@ public class Client
 	private static JMenu mnFile;
 	private static JMenuItem mntmCancelSending;
 	private static JMenuItem mntmSendFiles;
+	private static JPanel panel1;
+	private static JPanel panel0;
+	private static JScrollPane scrollPane0;
+	private static JTable tableTransfers;
+	private static DefaultTableModel tableTransfersModel;
 	
 	private static void WindowClient(String ip, int port)
 	{
 		frame = new JFrame();
 		frame.setResizable(false);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		frame.setTitle("Client - " + ip + ":" + port);
-		frame.setSize(506, 442);
+		frame.setTitle("Client [Disconnected]");
+		frame.setSize(700, 442);
 		frame.setLocationRelativeTo(null);
 		frame.getContentPane().setLayout(new BorderLayout(0, 0));
 		
+		mainPanel = new JPanel();
+		mainPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+		frame.getContentPane().add(mainPanel, BorderLayout.CENTER);
+		GridBagLayout gbl_mainPanel = new GridBagLayout();
+		gbl_mainPanel.columnWidths = new int[]{300, 307, 0};
+		gbl_mainPanel.rowHeights = new int[]{341, -14, 0};
+		gbl_mainPanel.columnWeights = new double[]{0.0, 1.0, Double.MIN_VALUE};
+		gbl_mainPanel.rowWeights = new double[]{1.0, 0.0, Double.MIN_VALUE};
+		mainPanel.setLayout(gbl_mainPanel);
+		
 		panel0 = new JPanel();
-		panel0.setBorder(new EmptyBorder(10, 10, 0, 10));
-		frame.getContentPane().add(panel0, BorderLayout.NORTH);
-		panel0.setLayout(new BorderLayout(0, 0));
+		GridBagConstraints gbc_panel0 = new GridBagConstraints();
+		gbc_panel0.insets = new Insets(0, 0, 5, 5);
+		gbc_panel0.fill = GridBagConstraints.BOTH;
+		gbc_panel0.gridx = 0;
+		gbc_panel0.gridy = 0;
+		mainPanel.add(panel0, gbc_panel0);
+		panel0.setLayout(new GridLayout(0, 1, 0, 0));
 		
-		lblMessages = new JLabel("Messages");
-		panel0.add(lblMessages, BorderLayout.SOUTH);
-		lblMessages.setFont(new Font("Tahoma", Font.PLAIN, 11));
+		scrollPane0 = new JScrollPane();
+		panel0.add(scrollPane0);
 		
-		subPanel2 = new JPanel();
-		subPanel2.setBorder(new EmptyBorder(0, 0, 10, 0));
-		panel0.add(subPanel2, BorderLayout.NORTH);
-		GridBagLayout gbl_subPanel2 = new GridBagLayout();
-		gbl_subPanel2.columnWidths = new int[]{160, 160, 0};
-		gbl_subPanel2.rowHeights = new int[]{0, 0};
-		gbl_subPanel2.columnWeights = new double[]{1.0, 1.0, Double.MIN_VALUE};
-		gbl_subPanel2.rowWeights = new double[]{0.0, Double.MIN_VALUE};
-		subPanel2.setLayout(gbl_subPanel2);
+		tableTransfersModel = new DefaultTableModel();
+		tableTransfersModel.addColumn("File name");
+		tableTransfersModel.addColumn("Transfer type");
+		tableTransfersModel.addColumn("Status");
 		
-		subPanel3 = new JPanel();
-		GridBagConstraints gbc_subPanel3 = new GridBagConstraints();
-		gbc_subPanel3.gridwidth = 2;
-		gbc_subPanel3.fill = GridBagConstraints.BOTH;
-		gbc_subPanel3.gridx = 0;
-		gbc_subPanel3.gridy = 0;
-		subPanel2.add(subPanel3, gbc_subPanel3);
-		subPanel3.setLayout(new BorderLayout(0, 0));
-		
-		lblDownloadInfo = new JLabel("No downloads are running");
-		subPanel3.add(lblDownloadInfo, BorderLayout.WEST);
-		
-		prgbarDownload = new JProgressBar();
-		subPanel3.add(prgbarDownload, BorderLayout.SOUTH);
+		tableTransfers = new JTable(tableTransfersModel);
+		tableTransfers.setFillsViewportHeight(true);
+		scrollPane0.setBorder(BorderFactory.createLineBorder(Color.black, 1));
+		scrollPane0.setViewportView(tableTransfers);
 		
 		panel1 = new JPanel();
-		panel1.setBorder(new EmptyBorder(3, 10, 10, 10));
-		frame.getContentPane().add(panel1, BorderLayout.CENTER);
-		panel1.setLayout(new BorderLayout(0, 0));
-
-		scrollPane = new JScrollPane();
-		scrollPane.setBorder(BorderFactory.createLineBorder(Color.black, 1));
-		panel1.add(scrollPane);
+		GridBagConstraints gbc_panel1 = new GridBagConstraints();
+		gbc_panel1.fill = GridBagConstraints.BOTH;
+		gbc_panel1.insets = new Insets(0, 0, 5, 0);
+		gbc_panel1.gridx = 1;
+		gbc_panel1.gridy = 0;
+		mainPanel.add(panel1, gbc_panel1);
+		panel1.setLayout(new GridLayout(0, 1, 0, 0));
+		
+		scrollPane1 = new JScrollPane();
+		panel1.add(scrollPane1);
+		scrollPane1.setBorder(BorderFactory.createLineBorder(Color.black, 1));
 		
 		textArea = new JTextArea();
 		textArea.setWrapStyleWord(true);
 		textArea.setLineWrap(true);
-		scrollPane.setViewportView(textArea);
+		scrollPane1.setViewportView(textArea);
 		textArea.setFont(new Font("Consolas", Font.PLAIN, 12));
 		textArea.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 		textArea.setEditable(false);
 		
 		panel2 = new JPanel();
-		panel2.setBorder(new EmptyBorder(5, 0, 0, 0));
-		panel1.add(panel2, BorderLayout.SOUTH);
+		GridBagConstraints gbc_panel2 = new GridBagConstraints();
+		gbc_panel2.gridwidth = 2;
+		gbc_panel2.fill = GridBagConstraints.BOTH;
+		gbc_panel2.gridx = 0;
+		gbc_panel2.gridy = 1;
+		mainPanel.add(panel2, gbc_panel2);
 		panel2.setLayout(new BorderLayout(0, 0));
 		
 		subPanel0 = new JPanel();
@@ -162,7 +166,7 @@ public class Client
 			@Override public void keyReleased(KeyEvent e) {}
 			@Override public void keyTyped(KeyEvent e) {}
 		});
-
+		
 		subPanel1 = new JPanel();
 		subPanel1.setBorder(new EmptyBorder(0, 5, 0, 0));
 		panel2.add(subPanel1, BorderLayout.EAST);
@@ -187,7 +191,7 @@ public class Client
 		
 		subPanel1.add(btnSend);
 		btnSend.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.black, 1), BorderFactory.createEmptyBorder(4, 10, 6, 10)));
-		
+
 		menuBar = new JMenuBar();
 		frame.setJMenuBar(menuBar);
 		
@@ -240,9 +244,16 @@ public class Client
 		mntmCancelSending = new JMenuItem("Cancel receiving");
 		mntmCancelSending.addActionListener(new ActionListener()
 		{
+			@Override
 			public void actionPerformed(ActionEvent e)
 			{
-				cancelReceiving(true);
+				if(tableTransfers.getSelectedRowCount() > 0)
+				{
+					int index = tableTransfers.getSelectedRow();
+					FileSaver saver = fileSavers.get(index);
+					
+					cancelReceiving(saver.getFileHash(), true);
+				}
 			}
 		});
 		
@@ -290,6 +301,8 @@ public class Client
 			new Thread(receiveFiles).start();
 			new Thread(processFiles).start();
 			new Thread(sendFiles).start();
+			
+			new Thread(renderTransfers).start();
 		}
 		catch(Exception ex) {}
 	}
@@ -442,31 +455,39 @@ public class Client
 					{
 						while(received_messages.size() > 0)
 						{
-							DataPackage dp = received_messages.get(0);
-							
-							if(dp.OBJECT_NAME.equals("client_state"))
+							try
 							{
-								if(client_state == 0)
+								DataPackage dp = received_messages.get(0);
+								
+								if(dp.OBJECT_NAME.equals("client_state"))
 								{
-									int state = (int) dp.OBJECT;
-									client_state = state;
-									
-									switch(state)
+									if(client_state == 0)
 									{
-										case 1:	JOptionPane.showMessageDialog(frame, "You have been disconnected from the server!", "Disconnected", JOptionPane.INFORMATION_MESSAGE); break;
-										case 2:	JOptionPane.showMessageDialog(frame, "Server has been shut down!", "Disconnected", JOptionPane.INFORMATION_MESSAGE); break;
-									}
-	
-									if(state != 0)
-									{
-										disconnect();
+										int state = (int) dp.OBJECT;
+										client_state = state;
+										
+										switch(state)
+										{
+											case 1:	JOptionPane.showMessageDialog(frame, "You have been disconnected from the server!", "Disconnected", JOptionPane.INFORMATION_MESSAGE); break;
+											case 2:	JOptionPane.showMessageDialog(frame, "Server has been shut down!", "Disconnected", JOptionPane.INFORMATION_MESSAGE); break;
+										}
+		
+										if(state != 0)
+										{
+											disconnect();
+										}
 									}
 								}
+								else if(dp.OBJECT_NAME.equals("message"))
+								{
+									logText((Message) dp.OBJECT);
+								}
+								else if(dp.OBJECT_NAME.equals("send_file"))
+								{
+									isWaiting = false;
+								}
 							}
-							if(dp.OBJECT_NAME.equals("message"))
-							{
-								logText((Message) dp.OBJECT);
-							}
+							catch(Exception ex) {}
 							
 							received_messages.remove(0);
 							Utils.sleep(1);
@@ -492,21 +513,20 @@ public class Client
 				{
 					if(messagesToSend.size() > 0)
 					{
-						for(DataPackage dp : messagesToSend)
+						while(messagesToSend.size() > 0)
 						{
 							try
 							{
-								if(client_state == 0)
-								{
-									oos = new ObjectOutputStream(new BufferedOutputStream(socket_messages.getOutputStream()));
-									oos.writeObject(dp);
-									oos.flush();
-								}
+								DataPackage dp = messagesToSend.get(0);
+								
+								oos = new ObjectOutputStream(new BufferedOutputStream(socket_messages.getOutputStream()));
+								oos.writeObject(dp);
+								oos.flush();
 							}
 							catch(Exception ex) {}
+							
+							messagesToSend.remove(0);
 						}
-
-						messagesToSend.clear();
 					}
 				}
 
@@ -526,17 +546,46 @@ public class Client
 	}
 	
 	private static ArrayList<FileDataPackage> received_files = new ArrayList<FileDataPackage>();
-	private static ArrayList<DataPackage> fileStatusesToSend = new ArrayList<DataPackage>();
-	private static ArrayList<String> fileHashes = new ArrayList<String>();
-	private static ArrayList<String> fileBanned = new ArrayList<String>();
+	private static ArrayList<String> fileTransfers = new ArrayList<>();
 	private static ArrayList<File> files = new ArrayList<File>();
-
-	private static FileDataPackage confirmReceiveFileData = null;
-	private static boolean confirmReceiveFile = false;
-	private static BufferedOutputStream fileBOS = null;
-	private static long downloaded = 0;
 	
+	private static ArrayList<String> fileBanned = new ArrayList<String>();
+	private static ArrayList<FileSaver> fileSavers = new ArrayList<>();
+	
+	private static FileDataPackage confirmReceiveFileData = null;
 	private static boolean isWaiting = false;
+	
+	private static Runnable renderTransfers = new Runnable()
+	{
+		@Override
+		public void run()
+		{
+			while(true)
+			{
+				if(fileSavers.size() > 0)
+				{
+					for(int i = 0; i < fileSavers.size(); i++)
+					{
+						FileSaver saver = fileSavers.get(i);
+						String fileName = saver.getFileName();
+						String transferType = "Download";
+						
+						long fileSize = saver.getFileSize();
+						long downloaded = saver.getSavedBytes();
+						
+						double percent = Math.round(((double) (downloaded * 100)) / ((double) fileSize) * 10.0) / 10.0;
+						String status = percent + "%";
+						
+						tableTransfersModel.setValueAt(fileName, i, 0);
+						tableTransfersModel.setValueAt(transferType, i, 1);
+						tableTransfersModel.setValueAt(status, i, 2);
+					}
+				}
+				
+				Utils.sleep(1);
+			}
+		}
+	};
 	
 	private static Runnable receiveFiles = new Runnable()
 	{
@@ -556,18 +605,12 @@ public class Client
 
 						if(dp.OBJECT_NAME.equals("file_data"))
 						{
-							FileDataPackage fdp = (FileDataPackage) dp.OBJECT;
-							received_files.add(fdp);
+							received_files.add((FileDataPackage) dp.OBJECT);
 							sendFileStatus(1);
 						}
 						else if(dp.OBJECT_NAME.equals("confirm_receive"))
 						{
 							confirmReceiveFileData = (FileDataPackage) dp.OBJECT;
-							confirmReceiveFile = true;
-						}
-						else if(dp.OBJECT_NAME.equals("send_file"))
-						{
-							isWaiting = false;
 						}
 					}
 					catch(Exception ex) {}
@@ -589,11 +632,12 @@ public class Client
 				{
 					try
 					{
-						if(confirmReceiveFile)
+						if(confirmReceiveFileData != null)
 						{
 							String fHash = confirmReceiveFileData.FILE_HASH;
 							String fName = confirmReceiveFileData.FILE_NAME;
 							String fUser = confirmReceiveFileData.USERNAME;
+							long fSize = confirmReceiveFileData.FILE_SIZE;
 							
 							int confirm = JOptionPane.showConfirmDialog(frame, fUser + " is sending you a file (" + fName + ").\nWould you like to accept receiving?", "Receive file", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
 							if(confirm == JOptionPane.YES_OPTION)
@@ -604,10 +648,8 @@ public class Client
 								if(jfc.showSaveDialog(frame) == JFileChooser.APPROVE_OPTION)
 								{
 									String path = jfc.getSelectedFile().getAbsolutePath();
-									FileOutputStream fos = new FileOutputStream(path);
-									
-									fileBOS = new BufferedOutputStream(fos);
-									fileHashes.add(fHash);
+									tableTransfersModel.addRow(new Object[] {fName, "Download", "0%"});
+									fileSavers.add(new FileSaver(path, fName, fHash, fSize));
 									
 									sendFileStatus(2);
 								}
@@ -624,47 +666,38 @@ public class Client
 							}
 							
 							confirmReceiveFileData = null;
-							confirmReceiveFile = false;
 						}
 						
 						if(received_files.size() > 0)
 						{
-							for(int i = 0; i < received_files.size(); i++)
+							while(received_files.size() > 0)
 							{
 								try
 								{
-									FileDataPackage data = received_files.get(i);
+									FileDataPackage data = received_files.get(0);
 									String hash = data.FILE_HASH;
 									
 									if(!fileBanned.contains(hash))
 									{
-										String fileName = data.FILE_NAME;
+										int index = getFileSaverIndex(hash);
+										FileSaver saver = fileSavers.get(index);
+										
 										long fileSize = data.FILE_SIZE;
-										int index = fileHashes.indexOf(hash);
 										byte[] bytes = data.BYTES;
 										
-										fileBOS.write(bytes);
-										downloaded += bytes.length;
-										
-										double percent = Math.round(((double) (downloaded * 100)) / ((double) fileSize) * 10.0) / 10.0;
-										lblDownloadInfo.setText("Downloading " + fileName + "... " + percent + "%");
-										prgbarDownload.setValue((int) Math.round(percent));
+										saver.save(bytes);
+										long downloaded = saver.getSavedBytes();
 		
 										if(downloaded >= fileSize)
 										{
-											fileHashes.remove(index);
-											lblDownloadInfo.setText("No downloads are running");
-											prgbarDownload.setValue(0);
-											
-											downloaded = 0;
-											fileBOS.close();
+											fileSavers.remove(index);
+											tableTransfersModel.removeRow(index);
 										}
 									}
-									
-									received_files.remove(i);
-									i--;
 								}
 								catch(Exception ex) {}
+								
+								received_files.remove(0);
 							}
 						}
 					}
@@ -675,6 +708,21 @@ public class Client
 			}
 		}
 	};
+	
+	private static int getFileSaverIndex(String hash)
+	{
+		int index = -1;
+		for(FileSaver saver : fileSavers)
+		{
+			index++;
+			if(hash.equals(saver.getFileHash()))
+			{
+				break;
+			}
+		}
+		
+		return index;
+	}
 
 	private static Runnable sendFiles = new Runnable()
 	{
@@ -687,69 +735,83 @@ public class Client
 			{
 				if(enableThreads)
 				{
-					if(fileStatusesToSend.size() > 0)
-					{
-						for(DataPackage dp : fileStatusesToSend)
-						{
-							try
-							{
-								oos = new ObjectOutputStream(new BufferedOutputStream(socket_files.getOutputStream()));
-								oos.writeObject(dp);
-								oos.flush();
-							}
-							catch(Exception ex) {}
-						}
-						
-						fileStatusesToSend.clear();
-					}
-
 					if(files.size() > 0)
 					{
-						for(int i = 0; i < files.size(); i++)
+						while(files.size() > 0)
 						{
 							try
 							{
-								File file = files.get(i);
-								
-								byte[] buffer = new byte[8192];
-								long fileSize = file.length();
-								
+								File file = files.get(0);
 								String fileName = file.getName();
 								String fileHash = Utils.hashSHA1(Generator.genRandomString(20) + Utils.getCurrentDate());
-								BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
-	
-								int read = 0;
-								while((read = bis.read(buffer)) != -1)
+								
+								ArrayList<FileDataPackage> fdps = new ArrayList<>();
+								FileTransfer transfer = new FileTransfer(file, new FileTransferInterface()
 								{
-									byte[] bytes = new byte[read];
-									System.arraycopy(buffer, 0, bytes, 0, read);
-									
-									FileDataPackage fdp = new FileDataPackage(username, srvIP, fileHash, fileName, fileSize, read).SetData(bytes);
-									
-									try
+									@Override
+									public void beginTransfer(String UID)
 									{
-										if(client_state == 0)
+										fileTransfers.add(UID);
+									}
+									
+									@Override
+									public void readBytes(FileTransfer.BytesInfo bytesInfo)
+									{
+										byte[] bytes = bytesInfo.getBytes();
+										long totalBytes = bytesInfo.getTotalBytes();
+										
+										FileDataPackage fdp = new FileDataPackage(username, srvIP, fileHash, fileName, totalBytes, bytes.length).SetData(bytes);
+										fdps.add(fdp);
+										
+										isWaiting = true;
+										while(isWaiting)
 										{
-											oos = new ObjectOutputStream(new BufferedOutputStream(socket_files.getOutputStream()));
-											oos.writeObject(new DataPackage("user_file_data", fdp));
-											oos.flush();
+											Utils.sleep(1);
 										}
 									}
-									catch(Exception ex) {}
-									
-									isWaiting = true;
-									while(isWaiting)
+
+									@Override
+									public void canceled(String UID)
 									{
+										fileTransfers.remove(UID);
+									}
+									
+									@Override
+									public void completed(String UID)
+									{
+										fileTransfers.remove(UID);
+									}
+									
+									@Override public void paused(String UID) {}
+									@Override public void proceed(String UID) {}
+								});
+								
+								transfer.begin();
+								while(fileTransfers.size() > 0)
+								{
+									while(fdps.size() > 0)
+									{
+										FileDataPackage fdp = fdps.get(0);
+										
+										try
+										{
+											if(client_state == 0)
+											{
+												oos = new ObjectOutputStream(new BufferedOutputStream(socket_files.getOutputStream()));
+												oos.writeObject(new DataPackage("user_file_data", fdp));
+												oos.flush();
+											}
+										}
+										catch(Exception ex) {}
+										
+										fdps.remove(0);
 										Utils.sleep(1);
 									}
 									
 									Utils.sleep(1);
 								}
-								
-								bis.close();
-								
-								files.remove(i);
-								i--;
+
+								files.remove(0);
 							}
 							catch(Exception ex) {}
 						}
@@ -761,27 +823,21 @@ public class Client
 		}
 	};
 
-	private static void cancelReceiving(boolean smsg)
+	private static void cancelReceiving(String hash, boolean smsg)
 	{
 		try
 		{
-			fileStatusesToSend.add(new DataPackage("cancel_sending", 1, username, localIP));
+			messagesToSend.add(new DataPackage("cancel_sending", 1, username, localIP));
 			
-			fileHashes.remove(0);
-			lblDownloadInfo.setText("No downloads are running");
-			prgbarDownload.setValue(0);
-			downloaded = 0;
-
-			fileBOS.close();
-		}
-		catch(Exception ex) {}
-		finally
-		{
+			if(hash.equals("all")) 	fileSavers.clear();
+			else					fileSavers.remove(getFileSaverIndex(hash));
+			
 			if(smsg)
 			{
 				JOptionPane.showMessageDialog(frame, "File receiving has been canceled!", "Canceled", JOptionPane.INFORMATION_MESSAGE);
 			}
 		}
+		catch(Exception ex) {}
 	}
 	
 	public static void sendFile(File f)
@@ -791,7 +847,7 @@ public class Client
 	
 	private static void sendFileStatus(int s)
 	{
-		fileStatusesToSend.add(new DataPackage("receive_file_data", s, username, localIP));
+		messagesToSend.add(new DataPackage("receive_file_data", s, username, localIP));
 	}
 
 	private static void logText(DataPackage dp)
@@ -802,7 +858,7 @@ public class Client
 		
 		textArea.append("[" + user + " - " + time + "]: " + text + "\n");
 
-		JScrollBar vertical = scrollPane.getVerticalScrollBar();
+		JScrollBar vertical = scrollPane1.getVerticalScrollBar();
 		vertical.setValue(vertical.getMaximum());
 	}
 	
@@ -814,7 +870,7 @@ public class Client
 		
 		textArea.append("[" + user + " - " + time + "]: " + text + "\n");
 
-		JScrollBar vertical = scrollPane.getVerticalScrollBar();
+		JScrollBar vertical = scrollPane1.getVerticalScrollBar();
 		vertical.setValue(vertical.getMaximum());
 	}
 	
@@ -823,7 +879,7 @@ public class Client
 		String time = Utils.getCurrentDateFormatted();
 		textArea.append("[Info - " + time + "]: " + text + "\n");
 
-		JScrollBar vertical = scrollPane.getVerticalScrollBar();
+		JScrollBar vertical = scrollPane1.getVerticalScrollBar();
 		vertical.setValue(vertical.getMaximum());
 	}
 	
@@ -838,7 +894,7 @@ public class Client
 				enableThreads = false;
 
 				logText("Client has been disconnected from server " + srvIP + ":" + srvMessagesPort + "!");
-				cancelReceiving(false);
+				cancelReceiving("all", false);
 			}
 			else
 			{

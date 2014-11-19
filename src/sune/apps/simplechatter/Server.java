@@ -364,7 +364,7 @@ public class Server
 						oos.writeObject(new DataPackage("message", "Welcome to the server, " + username + "!"));
 						oos.flush();
 
-						clients.add(new ClientThread(socket0, socket1, srvIP, clientAddr, clientName));
+						clients.add(new ClientThread(socket0, socket1, clientAddr, clientName));
 						list_clients_model.addElement(username + " - " + clientAddr + " - " + clientName);
 
 						sendMessage(username + " with IP " + clientAddr + " connected to the server!");
@@ -485,21 +485,8 @@ public class Server
 									cli.addDataPackage(new DataPackage("file_data", fdp));
 								}
 							}
-						
-							for(ClientThread cli : clients)
-							{
-								if(!cli.getIP().equals(client.getIP()))
-								{
-									int to = 0;
-									while(cli.isWaiting() && to < 15000)
-									{
-										to++;											
-										Utils.sleep(1);
-									}
-								}
-							}
-							
-							client.addDataPackage(new DataPackage("send_file", 1));
+
+							client.addMessage(new DataPackage("send_file", 1));
 							client.removeSentFile(0);
 						}
 					}		
