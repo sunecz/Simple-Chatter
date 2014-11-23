@@ -18,7 +18,6 @@ import java.awt.event.WindowListener;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
@@ -260,6 +259,11 @@ public class Server
 			public void windowClosing(WindowEvent e)
 			{
 				shutdown();
+				while(!shutdown)
+				{
+					Utils.sleep(1);
+				}
+				
 				System.exit(0);
 			}
 
@@ -406,6 +410,16 @@ public class Server
 								{
 									sendUserMessage(dp);
 								}
+								
+								if(dp.OBJECT_NAME.equals("disconnect"))
+								{
+									client.addMessage(new DataPackage("disconnect_response", 1));
+									
+									disconnectClient(i);
+									i--;
+									
+									break;
+								}
 							}
 							
 							client.clearMessages();
@@ -461,11 +475,13 @@ public class Server
 		messagesToSend.add((Message) dp.OBJECT);
 	}
 	
+	private static ArrayList<FileTransfer> fileTransfers = new ArrayList<>();
+	
 	private static Runnable sendFiles = new Runnable()
 	{
 		@Override
 		public void run()
-		{
+		{			
 			while(true)
 			{
 				if(clients.size() > 0)
@@ -494,56 +510,96 @@ public class Server
 				
 				if(files.size() > 0)
 				{
-					for(File file : files)
+					while(files.size() > 0)
 					{
 						try
 						{
-							byte[] buffer = new byte[8192];
-							long fileSize = file.length();
-							
+							File file = files.get(0);
 							String fileName = file.getName();
 							String fileHash = Utils.hashSHA1(Generator.genRandomString(20) + Utils.getCurrentDate());
-							BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
-
-							int read = 0;
-							while((read = bis.read(buffer)) != -1)
+							
+							ArrayList<FileDataPackage> fdps = new ArrayList<>();
+							FileTransfer transfer = new FileTransfer(file, new FileTransferInterface()
 							{
-								byte[] bytes = new byte[read];
-								System.arraycopy(buffer, 0, bytes, 0, read);
-								
-								FileDataPackage fdp = new FileDataPackage("Server", srvIP, fileHash, fileName, fileSize, read).SetData(bytes);
-								
-								if(clients.size() > 0)
+								@Override
+								public void beginTransfer(FileTransfer transfer)
 								{
-									for(ClientThread client : clients)
-									{
-										client.addDataPackage(new DataPackage("file_data", fdp));
-									}
+									fileTransfers.add(transfer);
+								}
+								
+								@Override
+								public void readBytes(FileTransfer transfer, FileTransfer.BytesInfo bytesInfo)
+								{
+									byte[] bytes = bytesInfo.getBytes();
+									long totalBytes = bytesInfo.getTotalBytes();
 									
-									for(ClientThread client : clients)
+									FileDataPackage fdp = new FileDataPackage("Server", srvIP, fileHash, fileName, totalBytes, bytes.length).SetData(bytes);
+									fdps.add(fdp);
+									
+									if(clients.size() > 0)
 									{
-										int to = 0;
-										while(client.isWaiting() && to < 15000)
+										for(ClientThread client : clients)
 										{
-											to++;											
-											Utils.sleep(1);
+											client.addDataPackage(new DataPackage("file_data", fdp));
+										}
+										
+										for(ClientThread client : clients)
+										{
+											int to = 0;
+											while(client.isWaiting() && to < 15000)
+											{
+												to++;											
+												Utils.sleep(1);
+											}
 										}
 									}
+									else
+									{
+										transfer.cancel();
+									}
 								}
-								else
+
+								@Override
+								public void canceled(FileTransfer transfer)
 								{
-									break;
+									int ind = -1;
+									for(FileTransfer ftr : fileTransfers)
+									{
+										ind++;
+										if(ftr.getUID().equals(transfer.getUID()))
+										{
+											break;
+										}
+									}
+									
+									fileTransfers.remove(ind);
 								}
 								
-								Utils.sleep(1);
-							}
+								@Override
+								public void completed(FileTransfer transfer)
+								{
+									int ind = -1;
+									for(FileTransfer ftr : fileTransfers)
+									{
+										ind++;
+										if(ftr.getUID().equals(transfer.getUID()))
+										{
+											break;
+										}
+									}
+									
+									fileTransfers.remove(ind);
+								}
+								
+								@Override public void paused(FileTransfer transfer) {}
+								@Override public void proceed(FileTransfer transfer) {}
+							});
 							
-							bis.close();
+							transfer.begin();
+							files.remove(0);
 						}
 						catch(Exception ex) {}
 					}
-					
-					files.clear();
 				}
 				
 				Utils.sleep(1);
@@ -609,7 +665,10 @@ public class Server
 			clients.remove(index);
 			list_clients_model.removeElementAt(index);
 			
-			logText(username + " with IP " + client_ip + " has been disconnected!");
+			String message = username + " with IP " + client_ip + " has been disconnected!";
+			
+			sendMessage(message);
+			logText(message);
 		}
 		catch(Exception ex) {}
 	}
@@ -621,10 +680,12 @@ public class Server
 	
 	private static void shutdown()
 	{
-		shutdown = true;
 		for(ClientThread client : clients)
 		{
 			client.setClientState(2);
 		}
+		
+		clients.clear();
+		shutdown = true;
 	}
 }

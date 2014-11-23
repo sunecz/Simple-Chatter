@@ -12,6 +12,7 @@ import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.io.BufferedInputStream;
@@ -33,6 +34,7 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
@@ -57,15 +59,17 @@ public class Client
 	private static JMenuItem mntmConnect;
 	private static JMenuItem mntmDisconnect;
 	private static JMenu mnFile;
-	private static JMenuItem mntmCancelSending;
 	private static JMenuItem mntmSendFiles;
 	private static JPanel panel1;
 	private static JPanel panel0;
 	private static JScrollPane scrollPane0;
 	private static JTable tableTransfers;
 	private static DefaultTableModel tableTransfersModel;
+	private static JMenuItem mntmReconnect;
+	private static JPopupMenu transfersMenu;
+	private static JMenuItem mntmCancelTransfer;
 	
-	private static void WindowClient(String ip, int port)
+	private static void WindowClient()
 	{
 		frame = new JFrame();
 		frame.setResizable(false);
@@ -103,6 +107,37 @@ public class Client
 		tableTransfersModel.addColumn("Status");
 		
 		tableTransfers = new JTable(tableTransfersModel);
+		tableTransfers.addMouseListener(new MouseListener()
+		{
+			@Override
+			public void mousePressed(MouseEvent e)
+			{
+				if(tableTransfers.getSelectedRowCount() > 0)
+				{
+					if(e.getModifiers() == MouseEvent.BUTTON3_MASK)
+					{
+						transfersMenu.show(tableTransfers, e.getX(), e.getY());
+					}
+				}
+			}
+
+			@Override
+			public void mouseReleased(MouseEvent e)
+			{
+				if(tableTransfers.getSelectedRowCount() > 0)
+				{
+					if(e.getModifiers() == MouseEvent.BUTTON3_MASK)
+					{
+						transfersMenu.show(tableTransfers, e.getX(), e.getY());
+					}
+				}
+			}
+			
+			@Override public void mouseClicked(MouseEvent e) {}
+			@Override public void mouseEntered(MouseEvent e) {}
+			@Override public void mouseExited(MouseEvent e) {}
+		});
+		
 		tableTransfers.setFillsViewportHeight(true);
 		scrollPane0.setBorder(BorderFactory.createLineBorder(Color.black, 1));
 		scrollPane0.setViewportView(tableTransfers);
@@ -214,10 +249,20 @@ public class Client
 		{
 			public void actionPerformed(ActionEvent e)
 			{
-				disconnect();
+				disconnect(true);
 			}
 		});
 		
+		mntmReconnect = new JMenuItem("Reconnect");
+		mntmReconnect.addActionListener(new ActionListener()
+		{
+			public void actionPerformed(ActionEvent e)
+			{
+				reconnect();
+			}
+		});
+		
+		mnClient.add(mntmReconnect);
 		mnClient.add(mntmDisconnect);
 		
 		mnFile = new JMenu("File");
@@ -240,24 +285,32 @@ public class Client
 		});
 		
 		mnFile.add(mntmSendFiles);
-		
-		mntmCancelSending = new JMenuItem("Cancel receiving");
-		mntmCancelSending.addActionListener(new ActionListener()
+
+		transfersMenu = new JPopupMenu();
+		mntmCancelTransfer = new JMenuItem("Cancel transfer");
+		mntmCancelTransfer.addActionListener(new ActionListener()
 		{
 			@Override
 			public void actionPerformed(ActionEvent e)
 			{
 				if(tableTransfers.getSelectedRowCount() > 0)
 				{
-					int index = tableTransfers.getSelectedRow();
-					FileSaver saver = fileSavers.get(index);
+					int[] rows = tableTransfers.getSelectedRows();
 					
-					cancelReceiving(saver.getFileHash(), true);
+					for(int i = rows.length - 1; i > -1; i--)
+					{
+						Object[] obj = tableInfo.get(rows[i]);
+						
+						String hash = (String) obj[1];
+						String type = (String) obj[2];
+						
+						cancelTransfer(hash, type, true);
+					}					
 				}
 			}
 		});
 		
-		mnFile.add(mntmCancelSending);
+		transfersMenu.add(mntmCancelTransfer);
 		
 		frame.setVisible(true);
 		frame.addWindowListener(new WindowListener()
@@ -265,13 +318,7 @@ public class Client
 			@Override
 			public void windowClosing(WindowEvent e)
 			{
-				try
-				{
-					socket_messages.close();
-					socket_files.close();
-				}
-				catch(Exception ex) {}
-				
+				disconnect(false);
 				System.exit(0);
 			}
 
@@ -291,7 +338,7 @@ public class Client
 			localIP = InetAddress.getLocalHost().getHostAddress();
 			username = System.getProperty("user.name");
 			
-			WindowClient(localIP, srvMessagesPort);
+			WindowClient();
 			connectToServerDialog();
 			
 			new Thread(receiveMessages).start();
@@ -320,8 +367,11 @@ public class Client
 	private static String username = "Unknown";
 	private static boolean enableThreads = true;
 	
-	private static ArrayList<DataPackage> received_messages = new ArrayList<DataPackage>();
-	private static ArrayList<DataPackage> messagesToSend = new ArrayList<DataPackage>();
+	private static boolean showDisconnectMessage = true;
+	private static boolean disconnected = false;
+	
+	private static ArrayList<DataPackage> received_messages = new ArrayList<>();
+	private static ArrayList<DataPackage> messagesToSend = new ArrayList<>();
 	
 	private static void connectToServer(String serverIP, int serverPort, int serverPort2)
 	{
@@ -378,6 +428,8 @@ public class Client
 					
 					client_state = 0;
 					enableThreads = true;
+					disconnected = false;
+					showDisconnectMessage = true;
 				}
 				catch(Exception ex) {}
 			}
@@ -466,15 +518,18 @@ public class Client
 										int state = (int) dp.OBJECT;
 										client_state = state;
 										
-										switch(state)
+										if(showDisconnectMessage)
 										{
-											case 1:	JOptionPane.showMessageDialog(frame, "You have been disconnected from the server!", "Disconnected", JOptionPane.INFORMATION_MESSAGE); break;
-											case 2:	JOptionPane.showMessageDialog(frame, "Server has been shut down!", "Disconnected", JOptionPane.INFORMATION_MESSAGE); break;
+											switch(state)
+											{
+												case 1:	JOptionPane.showMessageDialog(frame, "You have been disconnected from the server!", "Disconnected", JOptionPane.INFORMATION_MESSAGE); break;
+												case 2:	JOptionPane.showMessageDialog(frame, "Server has been shut down!", "Disconnected", JOptionPane.INFORMATION_MESSAGE); break;
+											}
 										}
 		
 										if(state != 0)
 										{
-											disconnect();
+											disconnect(true);
 										}
 									}
 								}
@@ -485,6 +540,10 @@ public class Client
 								else if(dp.OBJECT_NAME.equals("send_file"))
 								{
 									isWaiting = false;
+								}
+								else if(dp.OBJECT_NAME.equals("disconnect_response"))
+								{
+									disconnected = true;
 								}
 							}
 							catch(Exception ex) {}
@@ -545,12 +604,13 @@ public class Client
 		messagesToSend.add(dp);
 	}
 	
-	private static ArrayList<FileDataPackage> received_files = new ArrayList<FileDataPackage>();
-	private static ArrayList<String> fileTransfers = new ArrayList<>();
+	private static ArrayList<FileDataPackage> received_files = new ArrayList<>();
+	private static ArrayList<FileTransfer> fileTransfers = new ArrayList<>();
 	private static ArrayList<File> files = new ArrayList<File>();
 	
-	private static ArrayList<String> fileBanned = new ArrayList<String>();
+	private static ArrayList<String> fileBanned = new ArrayList<>();
 	private static ArrayList<FileSaver> fileSavers = new ArrayList<>();
+	private static ArrayList<Object[]> tableInfo = new ArrayList<>();
 	
 	private static FileDataPackage confirmReceiveFileData = null;
 	private static boolean isWaiting = false;
@@ -562,26 +622,57 @@ public class Client
 		{
 			while(true)
 			{
-				if(fileSavers.size() > 0)
+				if(tableInfo.size() > 0)
 				{
-					for(int i = 0; i < fileSavers.size(); i++)
+					for(int i = 0; i < tableInfo.size(); i++)
 					{
-						FileSaver saver = fileSavers.get(i);
-						String fileName = saver.getFileName();
-						String transferType = "Download";
-						
-						long fileSize = saver.getFileSize();
-						long downloaded = saver.getSavedBytes();
-						
-						double percent = Math.round(((double) (downloaded * 100)) / ((double) fileSize) * 10.0) / 10.0;
-						String status = percent + "%";
-						
-						tableTransfersModel.setValueAt(fileName, i, 0);
-						tableTransfersModel.setValueAt(transferType, i, 1);
-						tableTransfersModel.setValueAt(status, i, 2);
+						try
+						{
+							Object[] obj = tableInfo.get(i);
+							String hash = (String) obj[1];
+							String type = (String) obj[2];
+							
+							if(type.equals("receive"))
+							{
+								int index = getFileSaverIndex(hash);
+								
+								FileSaver saver = fileSavers.get(index);
+								String fileName = saver.getFileName();
+								String transferType = "Download";
+								
+								long fileSize = saver.getFileSize();
+								long downloaded = saver.getSavedBytes();
+								
+								double percent = Math.round(((double) (downloaded * 100)) / ((double) fileSize) * 10.0) / 10.0;
+								String status = percent + "%";
+								
+								tableTransfersModel.setValueAt(fileName, i, 0);
+								tableTransfersModel.setValueAt(transferType, i, 1);
+								tableTransfersModel.setValueAt(status, i, 2);
+							}
+							else if(type.equals("send"))
+							{
+								int index = getFileTransferIndex(hash);
+								
+								FileTransfer transfer = fileTransfers.get(index);
+								String fileName = transfer.getFileName();
+								String transferType = "Send";
+								
+								long fileSize = transfer.getTotalBytes();
+								long downloaded = transfer.getReadBytes();
+								
+								double percent = Math.round(((double) (downloaded * 100)) / ((double) fileSize) * 10.0) / 10.0;
+								String status = percent + "%";
+								
+								tableTransfersModel.setValueAt(fileName, i, 0);
+								tableTransfersModel.setValueAt(transferType, i, 1);
+								tableTransfersModel.setValueAt(status, i, 2);
+							}
+						}
+						catch(Exception ex) {}
 					}
 				}
-				
+
 				Utils.sleep(1);
 			}
 		}
@@ -648,8 +739,9 @@ public class Client
 								if(jfc.showSaveDialog(frame) == JFileChooser.APPROVE_OPTION)
 								{
 									String path = jfc.getSelectedFile().getAbsolutePath();
-									tableTransfersModel.addRow(new Object[] {fName, "Download", "0%"});
 									fileSavers.add(new FileSaver(path, fName, fHash, fSize));
+									tableTransfersModel.addRow(new Object[] {fName, "Download", "0%"});
+									tableInfo.add(new Object[] {tableTransfers.getRowCount(), fHash, "receive"});
 									
 									sendFileStatus(2);
 								}
@@ -691,7 +783,10 @@ public class Client
 										if(downloaded >= fileSize)
 										{
 											fileSavers.remove(index);
-											tableTransfersModel.removeRow(index);
+											
+											int inds[] = getTableInfo(hash);
+											tableTransfersModel.removeRow(inds[1]);
+											tableInfo.remove(inds[0]);
 										}
 									}
 								}
@@ -723,6 +818,47 @@ public class Client
 		
 		return index;
 	}
+	
+	private static int getFileTransferIndex(String UID)
+	{
+		int index = -1;
+		for(FileTransfer transfer : fileTransfers)
+		{
+			index++;
+			if(UID.equals(transfer.getUID()))
+			{
+				break;
+			}
+		}
+		
+		return index;
+	}
+	
+	private static int[] getTableInfo(String val)
+	{
+		int index0 = -1;
+		int index1 = -1;
+		int itype = -1;
+		
+		for(Object[] obj : tableInfo)
+		{
+			index0++;
+			if(val.equals((String) obj[1]))
+			{
+				index1 = (int) obj[0] - 1;
+				
+				switch(((String) obj[2]))
+				{
+					case "receive": 	itype = 0; 	break;
+					case "send": 		itype = 1; 	break;
+				}
+
+				break;
+			}
+		}
+		
+		return new int[] {index0, index1, itype};
+	}
 
 	private static Runnable sendFiles = new Runnable()
 	{
@@ -749,13 +885,15 @@ public class Client
 								FileTransfer transfer = new FileTransfer(file, new FileTransferInterface()
 								{
 									@Override
-									public void beginTransfer(String UID)
+									public void beginTransfer(FileTransfer transfer)
 									{
-										fileTransfers.add(UID);
+										fileTransfers.add(transfer);
+										tableTransfersModel.addRow(new Object[] {transfer.getFileName(), "Send", "0%"});
+										tableInfo.add(new Object[] {tableTransfers.getRowCount(), transfer.getUID(), "send"});
 									}
 									
 									@Override
-									public void readBytes(FileTransfer.BytesInfo bytesInfo)
+									public void readBytes(FileTransfer transfer, FileTransfer.BytesInfo bytesInfo)
 									{
 										byte[] bytes = bytesInfo.getBytes();
 										long totalBytes = bytesInfo.getTotalBytes();
@@ -771,19 +909,47 @@ public class Client
 									}
 
 									@Override
-									public void canceled(String UID)
+									public void canceled(FileTransfer transfer)
 									{
-										fileTransfers.remove(UID);
+										int ind = -1;
+										for(FileTransfer ftr : fileTransfers)
+										{
+											ind++;
+											if(ftr.getUID().equals(transfer.getUID()))
+											{
+												break;
+											}
+										}
+										
+										fileTransfers.remove(ind);
+										
+										int inds[] = getTableInfo(transfer.getUID());
+										tableTransfersModel.removeRow(inds[1]);
+										tableInfo.remove(inds[0]);
 									}
 									
 									@Override
-									public void completed(String UID)
+									public void completed(FileTransfer transfer)
 									{
-										fileTransfers.remove(UID);
+										int ind = -1;
+										for(FileTransfer ftr : fileTransfers)
+										{
+											ind++;
+											if(ftr.getUID().equals(transfer.getUID()))
+											{
+												break;
+											}
+										}
+										
+										fileTransfers.remove(ind);
+										
+										int inds[] = getTableInfo(transfer.getUID());
+										tableTransfersModel.removeRow(inds[1]);
+										tableInfo.remove(inds[0]);
 									}
 									
-									@Override public void paused(String UID) {}
-									@Override public void proceed(String UID) {}
+									@Override public void paused(FileTransfer transfer) {}
+									@Override public void proceed(FileTransfer transfer) {}
 								});
 								
 								transfer.begin();
@@ -823,18 +989,47 @@ public class Client
 		}
 	};
 
-	private static void cancelReceiving(String hash, boolean smsg)
+	private static void cancelTransfer(String value, String type, boolean smsg)
 	{
 		try
 		{
 			messagesToSend.add(new DataPackage("cancel_sending", 1, username, localIP));
 			
-			if(hash.equals("all")) 	fileSavers.clear();
-			else					fileSavers.remove(getFileSaverIndex(hash));
+			if(value.equals("all"))
+			{
+				fileSavers.clear();
+				fileTransfers.clear();
+				
+				for(int i = tableTransfersModel.getRowCount(); i > -1; i--)
+				{
+					tableTransfersModel.removeRow(i);
+				}
+			}
+			else
+			{
+				if(type.equals("receive"))
+				{
+					int index = getFileSaverIndex(value);
+					fileSavers.remove(index);
+					
+					int inds[] = getTableInfo(value);
+					tableTransfersModel.removeRow(inds[1]);
+					tableInfo.remove(inds[0]);
+				}
+				else if(type.equals("send"))
+				{
+					int index = getFileTransferIndex(value);
+					fileTransfers.remove(index);
+					
+					int inds[] = getTableInfo(value);
+					tableTransfersModel.removeRow(inds[1]);
+					tableInfo.remove(inds[0]);
+				}
+			}
 			
 			if(smsg)
 			{
-				JOptionPane.showMessageDialog(frame, "File receiving has been canceled!", "Canceled", JOptionPane.INFORMATION_MESSAGE);
+				JOptionPane.showMessageDialog(frame, "File transfer has been canceled!", "Canceled", JOptionPane.INFORMATION_MESSAGE);
 			}
 		}
 		catch(Exception ex) {}
@@ -883,24 +1078,62 @@ public class Client
 		vertical.setValue(vertical.getMaximum());
 	}
 	
-	private static void disconnect()
+	private static void disconnect(boolean showMessage)
 	{
-		try
+		new Thread(new Runnable()
 		{
-			if(!socket_messages.isClosed() && !socket_files.isClosed())
+			@Override
+			public void run()
 			{
-				socket_messages.close();
-				socket_files.close();
-				enableThreads = false;
+				try
+				{
+					if(!disconnected)
+					{
+						showDisconnectMessage = showMessage;
+						sendData(new DataPackage("disconnect", 1, username, localIP));
 
-				logText("Client has been disconnected from server " + srvIP + ":" + srvMessagesPort + "!");
-				cancelReceiving("all", false);
+						while(!disconnected)
+						{
+							Utils.sleep(1);
+						}
+
+						enableThreads = false;
+						disconnected = true;
+						showDisconnectMessage = true;
+						
+						cancelTransfer("all", "", false);
+						logText("Client has been disconnected from server " + srvIP + ":" + srvMessagesPort + "!");
+					}
+					else
+					{
+						logText("Client is alredy disconnected!");
+					}
+				}
+				catch(Exception ex) {}
 			}
-			else
+		}).start();
+	}
+	
+	private static void reconnect()
+	{
+		disconnect(false);
+		
+		new Thread(new Runnable()
+		{
+			@Override
+			public void run()
 			{
-				logText("Client is alredy disconnected!");
+				while(true)
+				{
+					if(disconnected)
+					{
+						connectToServer(srvIP, srvMessagesPort, srvFilesPort);
+						break;
+					}
+					
+					Utils.sleep(1);
+				}
 			}
-		}
-		catch(Exception ex) {}
+		}).start();
 	}
 }

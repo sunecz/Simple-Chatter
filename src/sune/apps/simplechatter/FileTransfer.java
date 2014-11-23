@@ -12,6 +12,7 @@ public class FileTransfer implements Runnable
 	private final FileTransferInterface fti;
 	private final int bufferSize = 8192;
 	
+	private final String fileName;
 	private final long totalBytes;
 	private long readBytes;
 	
@@ -30,6 +31,7 @@ public class FileTransfer implements Runnable
 		this.file = file;
 		this.fti = fti;
 		this.totalBytes = file.length();
+		this.fileName = file.getName();
 	}
 
 	@Override
@@ -56,18 +58,18 @@ public class FileTransfer implements Runnable
 				System.arraycopy(buffer, 0, bs, 0, read);
 			
 				readBytes += read;
-				fti.readBytes(new BytesInfo(bs, readBytes, totalBytes));
+				fti.readBytes(this, new BytesInfo(bs, readBytes, totalBytes));
 			}
 			
 			bis.close();
-			fti.completed(UID);
+			fti.completed(this);
 		}
 		catch(Exception ex) {}
 	}
 	
 	public void begin()
 	{
-		fti.beginTransfer(UID);
+		fti.beginTransfer(this);
 		new Thread(this).start();
 	}
 	
@@ -76,19 +78,19 @@ public class FileTransfer implements Runnable
 		canceled = true;
 		readBytes = 0;
 		
-		fti.canceled(UID);
+		fti.canceled(this);
 	}
 	
 	public void pause()
 	{
 		paused = true;
-		fti.paused(UID);
+		fti.paused(this);
 	}
 	
 	public void proceed()
 	{
 		paused = false;
-		fti.proceed(UID);
+		fti.proceed(this);
 	}
 	
 	public String getUID()
@@ -104,6 +106,11 @@ public class FileTransfer implements Runnable
 	public long getTotalBytes()
 	{
 		return totalBytes;
+	}
+	
+	public String getFileName()
+	{
+		return fileName;
 	}
 	
 	public final class BytesInfo

@@ -88,10 +88,7 @@ public class ClientThread
 						messages_received.add(dp);
 					}
 				}
-				catch(Exception ex)
-				{
-					client_state = 1;
-				}
+				catch(Exception ex) {}
 				
 				Utils.sleep(1);
 			}
