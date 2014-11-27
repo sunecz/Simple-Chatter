@@ -41,7 +41,8 @@ import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.border.EmptyBorder;
-import javax.swing.table.DefaultTableModel;
+
+import sune.apps.simplechatter.DataTableModel.RowData;
 
 public class Client
 {
@@ -64,7 +65,7 @@ public class Client
 	private static JPanel panel0;
 	private static JScrollPane scrollPane0;
 	private static JTable tableTransfers;
-	private static DefaultTableModel tableTransfersModel;
+	private static DataTableModel tableTransfersModel;
 	private static JMenuItem mntmReconnect;
 	private static JPopupMenu transfersMenu;
 	private static JMenuItem mntmCancelTransfer;
@@ -101,7 +102,7 @@ public class Client
 		scrollPane0 = new JScrollPane();
 		panel0.add(scrollPane0);
 		
-		tableTransfersModel = new DefaultTableModel();
+		tableTransfersModel = new DataTableModel();
 		tableTransfersModel.addColumn("File name");
 		tableTransfersModel.addColumn("Transfer type");
 		tableTransfersModel.addColumn("Status");
@@ -299,12 +300,8 @@ public class Client
 					
 					for(int i = rows.length - 1; i > -1; i--)
 					{
-						Object[] obj = tableInfo.get(rows[i]);
-						
-						String hash = (String) obj[1];
-						String type = (String) obj[2];
-						
-						cancelTransfer(hash, type, true);
+						RowData rd = tableTransfersModel.getAdditionalData(i);
+						cancelTransfer(rd.getHash(), rd.getType(), true);
 					}					
 				}
 			}
@@ -610,7 +607,6 @@ public class Client
 	
 	private static ArrayList<String> fileBanned = new ArrayList<>();
 	private static ArrayList<FileSaver> fileSavers = new ArrayList<>();
-	private static ArrayList<Object[]> tableInfo = new ArrayList<>();
 	
 	private static FileDataPackage confirmReceiveFileData = null;
 	private static boolean isWaiting = false;
@@ -622,15 +618,18 @@ public class Client
 		{
 			while(true)
 			{
-				if(tableInfo.size() > 0)
+				ArrayList<RowData> rowsData = tableTransfersModel.getRowsData();
+				
+				if(rowsData.size() > 0)
 				{
-					for(int i = 0; i < tableInfo.size(); i++)
+					for(int i = 0; i < rowsData.size(); i++)
 					{
 						try
 						{
-							Object[] obj = tableInfo.get(i);
-							String hash = (String) obj[1];
-							String type = (String) obj[2];
+							RowData info = rowsData.get(i);
+
+							String hash = info.getHash();
+							String type = info.getType();
 							
 							if(type.equals("receive"))
 							{
@@ -646,9 +645,9 @@ public class Client
 								double percent = Math.round(((double) (downloaded * 100)) / ((double) fileSize) * 10.0) / 10.0;
 								String status = percent + "%";
 								
-								tableTransfersModel.setValueAt(fileName, i, 0);
-								tableTransfersModel.setValueAt(transferType, i, 1);
-								tableTransfersModel.setValueAt(status, i, 2);
+								tableTransfersModel.setValue(hash, 0, fileName);
+								tableTransfersModel.setValue(hash, 1, transferType);
+								tableTransfersModel.setValue(hash, 2, status);
 							}
 							else if(type.equals("send"))
 							{
@@ -664,9 +663,9 @@ public class Client
 								double percent = Math.round(((double) (downloaded * 100)) / ((double) fileSize) * 10.0) / 10.0;
 								String status = percent + "%";
 								
-								tableTransfersModel.setValueAt(fileName, i, 0);
-								tableTransfersModel.setValueAt(transferType, i, 1);
-								tableTransfersModel.setValueAt(status, i, 2);
+								tableTransfersModel.setValue(hash, 0, fileName);
+								tableTransfersModel.setValue(hash, 1, transferType);
+								tableTransfersModel.setValue(hash, 2, status);
 							}
 						}
 						catch(Exception ex) {}
@@ -725,39 +724,44 @@ public class Client
 					{
 						if(confirmReceiveFileData != null)
 						{
-							String fHash = confirmReceiveFileData.FILE_HASH;
-							String fName = confirmReceiveFileData.FILE_NAME;
-							String fUser = confirmReceiveFileData.USERNAME;
-							long fSize = confirmReceiveFileData.FILE_SIZE;
-							
-							int confirm = JOptionPane.showConfirmDialog(frame, fUser + " is sending you a file (" + fName + ").\nWould you like to accept receiving?", "Receive file", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
-							if(confirm == JOptionPane.YES_OPTION)
+							new Thread(new Runnable()
 							{
-								JFileChooser jfc = new JFileChooser();
-								jfc.setName(fName);
-								
-								if(jfc.showSaveDialog(frame) == JFileChooser.APPROVE_OPTION)
+								@Override
+								public void run()
 								{
-									String path = jfc.getSelectedFile().getAbsolutePath();
-									fileSavers.add(new FileSaver(path, fName, fHash, fSize));
-									tableTransfersModel.addRow(new Object[] {fName, "Download", "0%"});
-									tableInfo.add(new Object[] {tableTransfers.getRowCount(), fHash, "receive"});
+									String fHash = confirmReceiveFileData.FILE_HASH;
+									String fName = confirmReceiveFileData.FILE_NAME;
+									String fUser = confirmReceiveFileData.USERNAME;
+									long fSize = confirmReceiveFileData.FILE_SIZE;
+									confirmReceiveFileData = null;
 									
-									sendFileStatus(2);
+									int confirm = JOptionPane.showConfirmDialog(frame, fUser + " is sending you a file (" + fName + ").\nWould you like to accept receiving?", "Receive file", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+									if(confirm == JOptionPane.YES_OPTION)
+									{
+										JFileChooser jfc = new JFileChooser();
+										jfc.setName(fName);
+										
+										if(jfc.showSaveDialog(frame) == JFileChooser.APPROVE_OPTION)
+										{
+											String path = jfc.getSelectedFile().getAbsolutePath();
+											fileSavers.add(new FileSaver(path, fName, fHash, fSize));
+											tableTransfersModel.addRow(fHash, new Object[] {fName, "Download", "Starting..."}, tableTransfersModel.new RowData(tableTransfersModel.getRowCount(), fHash, "receive"));
+											
+											sendFileStatus(2);
+										}
+										else
+										{
+											fileBanned.add(fHash);
+											sendFileStatus(3);
+										}
+									}
+									else
+									{
+										fileBanned.add(fHash);
+										sendFileStatus(3);
+									}
 								}
-								else
-								{
-									fileBanned.add(fHash);
-									sendFileStatus(3);
-								}
-							}
-							else
-							{
-								fileBanned.add(fHash);
-								sendFileStatus(3);
-							}
-							
-							confirmReceiveFileData = null;
+							}).start();
 						}
 						
 						if(received_files.size() > 0)
@@ -779,14 +783,12 @@ public class Client
 										
 										saver.save(bytes);
 										long downloaded = saver.getSavedBytes();
-		
+
 										if(downloaded >= fileSize)
 										{
-											fileSavers.remove(index);
-											
-											int inds[] = getTableInfo(hash);
-											tableTransfersModel.removeRow(inds[1]);
-											tableInfo.remove(inds[0]);
+											int ind = getFileSaverIndex(hash);
+											fileSavers.remove(ind);
+											removeRow(hash);
 										}
 									}
 								}
@@ -803,6 +805,40 @@ public class Client
 			}
 		}
 	};
+	
+	private static void removeRow(String hash)
+	{
+		new Thread(new Runnable()
+		{
+			@Override
+			public void run()
+			{
+				while(true)
+				{
+					try
+					{
+						tableTransfersModel.removeRow(hash);
+						
+						if(tableTransfersModel.getRowsData().size() > 0)
+						{
+							int i = 0;
+							for(RowData data : tableTransfersModel.getRowsData())
+							{
+								data.setIndex(i);
+								tableTransfersModel.setRowsData(i, data);
+							}
+						}
+
+						tableTransfersModel.fireTableDataChanged();
+						break;
+					}
+					catch(Exception ex) {}
+					
+					Utils.sleep(1);
+				}
+			}
+		}).start();
+	}
 	
 	private static int getFileSaverIndex(String hash)
 	{
@@ -833,32 +869,6 @@ public class Client
 		
 		return index;
 	}
-	
-	private static int[] getTableInfo(String val)
-	{
-		int index0 = -1;
-		int index1 = -1;
-		int itype = -1;
-		
-		for(Object[] obj : tableInfo)
-		{
-			index0++;
-			if(val.equals((String) obj[1]))
-			{
-				index1 = (int) obj[0] - 1;
-				
-				switch(((String) obj[2]))
-				{
-					case "receive": 	itype = 0; 	break;
-					case "send": 		itype = 1; 	break;
-				}
-
-				break;
-			}
-		}
-		
-		return new int[] {index0, index1, itype};
-	}
 
 	private static Runnable sendFiles = new Runnable()
 	{
@@ -888,8 +898,7 @@ public class Client
 									public void beginTransfer(FileTransfer transfer)
 									{
 										fileTransfers.add(transfer);
-										tableTransfersModel.addRow(new Object[] {transfer.getFileName(), "Send", "0%"});
-										tableInfo.add(new Object[] {tableTransfers.getRowCount(), transfer.getUID(), "send"});
+										tableTransfersModel.addRow(transfer.getUID(), new Object[] {transfer.getFileName(), "Send", "0%"}, tableTransfersModel.new RowData(tableTransfersModel.getRowCount(), transfer.getUID(), "send"));
 									}
 									
 									@Override
@@ -911,41 +920,21 @@ public class Client
 									@Override
 									public void canceled(FileTransfer transfer)
 									{
-										int ind = -1;
-										for(FileTransfer ftr : fileTransfers)
-										{
-											ind++;
-											if(ftr.getUID().equals(transfer.getUID()))
-											{
-												break;
-											}
-										}
-										
+										String UID = transfer.getUID();
+
+										int ind = getFileTransferIndex(UID);
 										fileTransfers.remove(ind);
-										
-										int inds[] = getTableInfo(transfer.getUID());
-										tableTransfersModel.removeRow(inds[1]);
-										tableInfo.remove(inds[0]);
+										removeRow(UID);
 									}
 									
 									@Override
 									public void completed(FileTransfer transfer)
 									{
-										int ind = -1;
-										for(FileTransfer ftr : fileTransfers)
-										{
-											ind++;
-											if(ftr.getUID().equals(transfer.getUID()))
-											{
-												break;
-											}
-										}
-										
+										String UID = transfer.getUID();
+
+										int ind = getFileTransferIndex(UID);
 										fileTransfers.remove(ind);
-										
-										int inds[] = getTableInfo(transfer.getUID());
-										tableTransfersModel.removeRow(inds[1]);
-										tableInfo.remove(inds[0]);
+										removeRow(UID);
 									}
 									
 									@Override public void paused(FileTransfer transfer) {}
@@ -1009,21 +998,15 @@ public class Client
 			{
 				if(type.equals("receive"))
 				{
-					int index = getFileSaverIndex(value);
-					fileSavers.remove(index);
-					
-					int inds[] = getTableInfo(value);
-					tableTransfersModel.removeRow(inds[1]);
-					tableInfo.remove(inds[0]);
+					int ind = getFileSaverIndex(value);
+					fileSavers.remove(ind);
+					removeRow(value);
 				}
 				else if(type.equals("send"))
 				{
-					int index = getFileTransferIndex(value);
-					fileTransfers.remove(index);
-					
-					int inds[] = getTableInfo(value);
-					tableTransfersModel.removeRow(inds[1]);
-					tableInfo.remove(inds[0]);
+					int ind = getFileTransferIndex(value);
+					fileTransfers.remove(ind);
+					removeRow(value);
 				}
 			}
 			

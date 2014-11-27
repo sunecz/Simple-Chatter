@@ -298,6 +298,7 @@ public class Server
 						new Thread(processMessages).start();
 						new Thread(sendMessages).start();
 						new Thread(sendFiles).start();
+						new Thread(sendUserFiles).start();
 
 						logText("Server has been started on " + srvIP + ":" + srvMessagesPort + "!");
 					}
@@ -484,30 +485,6 @@ public class Server
 		{			
 			while(true)
 			{
-				if(clients.size() > 0)
-				{
-					for(ClientThread client : clients)
-					{
-						ArrayList<FileDataPackage> sent_files = client.getSentFiles();
-						
-						if(sent_files.size() > 0)
-						{
-							FileDataPackage fdp = (FileDataPackage) sent_files.get(0);
-							
-							for(ClientThread cli : clients)
-							{
-								if(!cli.getIP().equals(client.getIP()))
-								{
-									cli.addDataPackage(new DataPackage("file_data", fdp));
-								}
-							}
-
-							client.addMessage(new DataPackage("send_file", 1));
-							client.removeSentFile(0);
-						}
-					}		
-				}
-				
 				if(files.size() > 0)
 				{
 					while(files.size() > 0)
@@ -600,6 +577,42 @@ public class Server
 						}
 						catch(Exception ex) {}
 					}
+				}
+				
+				Utils.sleep(1);
+			}
+		}
+	};
+	
+	private static Runnable sendUserFiles = new Runnable()
+	{
+		@Override
+		public void run()
+		{			
+			while(true)
+			{
+				if(clients.size() > 0)
+				{
+					for(ClientThread client : clients)
+					{
+						ArrayList<FileDataPackage> sent_files = client.getSentFiles();
+						
+						if(sent_files.size() > 0)
+						{
+							FileDataPackage fdp = (FileDataPackage) sent_files.get(0);
+							
+							for(ClientThread cli : clients)
+							{
+								if(!cli.getIP().equals(client.getIP()))
+								{
+									cli.addDataPackage(new DataPackage("file_data", fdp));
+								}
+							}
+
+							client.addMessage(new DataPackage("send_file", 1));
+							client.removeSentFile(0);
+						}
+					}		
 				}
 				
 				Utils.sleep(1);
