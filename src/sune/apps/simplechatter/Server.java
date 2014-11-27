@@ -591,8 +591,9 @@ public class Server
 		{			
 			while(true)
 			{
-				if(clients.size() > 0)
+				if(clients.size() > 1)
 				{
+					int counter = 0;
 					for(ClientThread client : clients)
 					{
 						ArrayList<FileDataPackage> sent_files = client.getSentFiles();
@@ -601,18 +602,23 @@ public class Server
 						{
 							FileDataPackage fdp = (FileDataPackage) sent_files.get(0);
 							
+							int clientc = 0;
 							for(ClientThread cli : clients)
 							{
-								if(!cli.getIP().equals(client.getIP()))
+								if(counter != clientc)
 								{
 									cli.addDataPackage(new DataPackage("file_data", fdp));
 								}
+								
+								clientc++;
 							}
 
 							client.addMessage(new DataPackage("send_file", 1));
 							client.removeSentFile(0);
 						}
-					}		
+						
+						counter++;
+					}
 				}
 				
 				Utils.sleep(1);
