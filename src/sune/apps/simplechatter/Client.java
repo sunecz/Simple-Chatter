@@ -536,6 +536,9 @@ public class Client
 								}
 								else if(dp.OBJECT_NAME.equals("send_file"))
 								{
+									if(dp.OBJECT instanceof String)
+										cancelTransfer = (String) dp.OBJECT;
+									
 									isWaiting = false;
 								}
 								else if(dp.OBJECT_NAME.equals("disconnect_response"))
@@ -609,6 +612,7 @@ public class Client
 	private static ArrayList<FileSaver> fileSavers = new ArrayList<>();
 	
 	private static FileDataPackage confirmReceiveFileData = null;
+	private static String cancelTransfer = "";
 	private static boolean isWaiting = false;
 	
 	private static Runnable renderTransfers = new Runnable()
@@ -914,6 +918,12 @@ public class Client
 										while(isWaiting)
 										{
 											Utils.sleep(1);
+										}
+										
+										if(cancelTransfer.equals(fileHash))
+										{
+											cancelTransfer = "";
+											transfer.cancel();
 										}
 									}
 

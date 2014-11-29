@@ -477,6 +477,12 @@ public class Server
 	}
 	
 	private static ArrayList<FileTransfer> fileTransfers = new ArrayList<>();
+	private static ArrayList<FileDataPackage> filesUsers = new ArrayList<>();
+	
+	public static void addUserFile(FileDataPackage fdp)
+	{
+		filesUsers.add(fdp);
+	}
 	
 	private static Runnable sendFiles = new Runnable()
 	{
@@ -593,31 +599,34 @@ public class Server
 			{
 				if(clients.size() > 1)
 				{
-					int counter = 0;
-					for(ClientThread client : clients)
+					while(filesUsers.size() > 0)
 					{
-						ArrayList<FileDataPackage> sent_files = client.getSentFiles();
+						FileDataPackage fdp = filesUsers.get(0);
+						ClientThread client = null;
 						
-						if(sent_files.size() > 0)
+						for(ClientThread cli : clients)
 						{
-							FileDataPackage fdp = (FileDataPackage) sent_files.get(0);
-							
-							int clientc = 0;
-							for(ClientThread cli : clients)
-							{
-								if(counter != clientc)
-								{
-									cli.addDataPackage(new DataPackage("file_data", fdp));
-								}
-								
-								clientc++;
-							}
-
-							client.addMessage(new DataPackage("send_file", 1));
-							client.removeSentFile(0);
+							if(!cli.getIP().equals(fdp.IP))	cli.addDataPackage(new DataPackage("file_data", fdp));
+							else							client = cli;
 						}
 						
-						counter++;
+						if(client != null)
+							client.addMessage(new DataPackage("send_file", 1));
+						
+						filesUsers.remove(0);
+					}
+				}
+				else
+				{
+					if(clients.size() > 0)
+					{
+						if(filesUsers.size() > 0)
+						{
+							ClientThread client = clients.get(0);
+							client.addMessage(new DataPackage("send_file", filesUsers.get(0).FILE_HASH));
+							
+							filesUsers.clear();
+						}
 					}
 				}
 				

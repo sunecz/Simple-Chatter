@@ -169,7 +169,7 @@ public class ClientThread
 					if(dp.OBJECT_NAME.equals("user_file_data"))
 					{
 						FileDataPackage fdp = (FileDataPackage) dp.OBJECT;
-						files_sent.add(fdp);
+						Server.addUserFile(fdp);
 					}
 				}
 				catch(Exception ex) {}
