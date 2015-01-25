@@ -46,31 +46,81 @@ import sune.apps.simplechatter.DataTableModel.RowData;
 
 public class Client
 {
-	private static JFrame frame;
-	private static JPanel mainPanel;
-	private static JTextArea textArea;
-	private static JScrollPane scrollPane1;
-	private static JPanel panel2;
-	private static JTextField txtMessage;
-	private static JPanel subPanel0;
-	private static JButton btnSend;
-	private static JPanel subPanel1;
-	private static JMenuBar menuBar;
-	private static JMenu mnClient;
-	private static JMenuItem mntmConnect;
-	private static JMenuItem mntmDisconnect;
-	private static JMenu mnFile;
-	private static JMenuItem mntmSendFiles;
-	private static JPanel panel1;
-	private static JPanel panel0;
-	private static JScrollPane scrollPane0;
-	private static JTable tableTransfers;
-	private static DataTableModel tableTransfersModel;
-	private static JMenuItem mntmReconnect;
-	private static JPopupMenu transfersMenu;
-	private static JMenuItem mntmCancelTransfer;
+	private final int SERVER_MESSAGES_PORT = 2400;
+	private final int SERVER_FILES_PORT = 2401;
 	
-	private static void WindowClient()
+	private JFrame frame;
+	private JPanel mainPanel;
+	private JTextArea textArea;
+	private JScrollPane scrollPane1;
+	private JPanel panel2;
+	private JTextField txtMessage;
+	private JPanel subPanel0;
+	private JButton btnSend;
+	private JPanel subPanel1;
+	private JMenuBar menuBar;
+	private JMenu mnClient;
+	private JMenuItem mntmConnect;
+	private JMenuItem mntmDisconnect;
+	private JMenu mnFile;
+	private JMenuItem mntmSendFiles;
+	private JPanel panel1;
+	private JPanel panel0;
+	private JScrollPane scrollPane0;
+	private JTable tableTransfers;
+	private DataTableModel tableTransfersModel;
+	private JMenuItem mntmReconnect;
+	private JPopupMenu transfersMenu;
+	private JMenuItem mntmCancelTransfer;
+	
+	private String srvIP = "";
+	private String localIP = "";
+
+	private Socket socket_messages;
+	private Socket socket_files;
+
+	private int client_state = 0;
+	private String username = "Unknown";
+	private boolean enableThreads = true;
+	
+	private boolean showDisconnectMessage = true;
+	private boolean disconnected = false;
+	
+	private ArrayList<DataPackage> received_messages = new ArrayList<>();
+	private ArrayList<DataPackage> messagesToSend = new ArrayList<>();
+	
+	private ArrayList<FileDataPackage> received_files = new ArrayList<>();
+	private ArrayList<FileTransfer> fileTransfers = new ArrayList<>();
+	private ArrayList<File> files = new ArrayList<File>();
+	
+	private ArrayList<String> fileBanned = new ArrayList<>();
+	private ArrayList<FileSaver> fileSavers = new ArrayList<>();
+	
+	private FileDataPackage confirmReceiveFileData = null;
+	private String cancelTransfer = "";
+	private boolean isWaiting = false;
+	
+	private ArrayList<FileDataPackage> fdps = new ArrayList<>();
+	
+	public Client(InetAddress addr, String user)
+	{
+		localIP = addr.getHostAddress();
+		username = user;
+
+		init();
+		connectToServerDialog();
+		
+		new Thread(receiveMessages).start();
+		new Thread(processMessages).start();
+		new Thread(sendMessages).start();
+		new Thread(receiveFiles).start();
+		new Thread(processFiles).start();
+		new Thread(sendFiles).start();
+		new Thread(transfersThread).start();
+		new Thread(renderTransfers).start();
+	}
+	
+	public void init()
 	{
 		frame = new JFrame();
 		frame.setResizable(false);
@@ -279,7 +329,7 @@ public class Client
 					@Override
 					public void Send(File f)
 					{
-						Client.sendFile(f);
+						sendFile(f);
 					}
 				});
 			}
@@ -332,45 +382,12 @@ public class Client
 	{
 		try
 		{
-			localIP = InetAddress.getLocalHost().getHostAddress();
-			username = System.getProperty("user.name");
-			
-			WindowClient();
-			connectToServerDialog();
-			
-			new Thread(receiveMessages).start();
-			new Thread(processMessages).start();
-			new Thread(sendMessages).start();
-			
-			new Thread(receiveFiles).start();
-			new Thread(processFiles).start();
-			new Thread(sendFiles).start();
-			
-			new Thread(renderTransfers).start();
+			new Client(InetAddress.getLocalHost(), System.getProperty("user.name"));
 		}
 		catch(Exception ex) {}
 	}
 
-	private static String srvIP = "";
-	private static String localIP = "";
-	
-	private final static int srvMessagesPort = 2400;
-	private final static int srvFilesPort = 2401;
-	
-	private static Socket socket_messages;
-	private static Socket socket_files;
-
-	private static int client_state = 0;
-	private static String username = "Unknown";
-	private static boolean enableThreads = true;
-	
-	private static boolean showDisconnectMessage = true;
-	private static boolean disconnected = false;
-	
-	private static ArrayList<DataPackage> received_messages = new ArrayList<>();
-	private static ArrayList<DataPackage> messagesToSend = new ArrayList<>();
-	
-	private static void connectToServer(String serverIP, int serverPort, int serverPort2)
+	private void connectToServer(String serverIP, int serverPort, int serverPort2)
 	{
 		if(socket_messages != null && socket_files != null)
 		{
@@ -379,7 +396,7 @@ public class Client
 				socket_messages.close();
 				socket_files.close();
 				
-				logText("Client has been disconnected from server " + srvIP + ":" + srvMessagesPort + "!");
+				logText("Client has been disconnected from server " + srvIP + ":" + SERVER_MESSAGES_PORT + "!");
 			}
 			catch(Exception ex) {}			
 		}
@@ -393,11 +410,11 @@ public class Client
 		try
 		{
 			socket_messages = new Socket();
-			socket_messages.connect(new InetSocketAddress(srvIP, srvMessagesPort), 8000);
+			socket_messages.connect(new InetSocketAddress(srvIP, SERVER_MESSAGES_PORT), 8000);
 			socket_messages.setSoTimeout(8000);
 
 			socket_files = new Socket();
-			socket_files.connect(new InetSocketAddress(srvIP, srvFilesPort), 8000);
+			socket_files.connect(new InetSocketAddress(srvIP, SERVER_FILES_PORT), 8000);
 			socket_files.setSoTimeout(8000);
 		}
 		catch(Exception ex)
@@ -437,7 +454,7 @@ public class Client
 		}
 	}
 	
-	private static void connectToServerDialog()
+	private void connectToServerDialog()
 	{
 		String strIP = JOptionPane.showInputDialog(frame, "Server IP", "Connect to a server", JOptionPane.QUESTION_MESSAGE);
 		
@@ -449,7 +466,7 @@ public class Client
 				{
 					public void run()
 					{
-						connectToServer(strIP, srvMessagesPort, srvFilesPort);
+						connectToServer(strIP, SERVER_MESSAGES_PORT, SERVER_FILES_PORT);
 					}
 				}).start();	
 			}
@@ -460,7 +477,7 @@ public class Client
 		}
 	}
 	
-	private static Runnable receiveMessages = new Runnable()
+	private Runnable receiveMessages = new Runnable()
 	{
 		@Override
 		public void run()
@@ -491,7 +508,7 @@ public class Client
 		}
 	};
 	
-	private static Runnable processMessages = new Runnable()
+	private Runnable processMessages = new Runnable()
 	{
 		@Override
 		public void run()
@@ -559,7 +576,7 @@ public class Client
 		}
 	};
 
-	private static Runnable sendMessages = new Runnable()
+	private Runnable sendMessages = new Runnable()
 	{
 		@Override
 		public void run()
@@ -594,28 +611,17 @@ public class Client
 		}
 	};
 	
-	private static void sendMessage(String msg)
+	private void sendMessage(String msg)
 	{
 		messagesToSend.add(new DataPackage("message", new Message(username, Utils.getCurrentDateFormatted(), msg, localIP), username, localIP));
 	}
 	
-	private static void sendData(DataPackage dp)
+	private void sendData(DataPackage dp)
 	{
 		messagesToSend.add(dp);
 	}
-	
-	private static ArrayList<FileDataPackage> received_files = new ArrayList<>();
-	private static ArrayList<FileTransfer> fileTransfers = new ArrayList<>();
-	private static ArrayList<File> files = new ArrayList<File>();
-	
-	private static ArrayList<String> fileBanned = new ArrayList<>();
-	private static ArrayList<FileSaver> fileSavers = new ArrayList<>();
-	
-	private static FileDataPackage confirmReceiveFileData = null;
-	private static String cancelTransfer = "";
-	private static boolean isWaiting = false;
-	
-	private static Runnable renderTransfers = new Runnable()
+
+	private Runnable renderTransfers = new Runnable()
 	{
 		@Override
 		public void run()
@@ -681,7 +687,7 @@ public class Client
 		}
 	};
 	
-	private static Runnable receiveFiles = new Runnable()
+	private Runnable receiveFiles = new Runnable()
 	{
 		@Override
 		public void run()
@@ -715,7 +721,7 @@ public class Client
 		}
 	};
 
-	private static Runnable processFiles = new Runnable()
+	private Runnable processFiles = new Runnable()
 	{
 		@Override
 		public void run()
@@ -784,10 +790,9 @@ public class Client
 										
 										long fileSize = data.FILE_SIZE;
 										byte[] bytes = data.BYTES;
-										
 										saver.save(bytes);
+										
 										long downloaded = saver.getSavedBytes();
-
 										if(downloaded >= fileSize)
 										{
 											int ind = getFileSaverIndex(hash);
@@ -810,7 +815,7 @@ public class Client
 		}
 	};
 	
-	private static void removeRow(String hash)
+	private void removeRow(String hash)
 	{
 		new Thread(new Runnable()
 		{
@@ -844,7 +849,7 @@ public class Client
 		}).start();
 	}
 	
-	private static int getFileSaverIndex(String hash)
+	private int getFileSaverIndex(String hash)
 	{
 		int index = -1;
 		for(FileSaver saver : fileSavers)
@@ -859,7 +864,7 @@ public class Client
 		return index;
 	}
 	
-	private static int getFileTransferIndex(String UID)
+	private int getFileTransferIndex(String UID)
 	{
 		int index = -1;
 		for(FileTransfer transfer : fileTransfers)
@@ -874,13 +879,11 @@ public class Client
 		return index;
 	}
 
-	private static Runnable sendFiles = new Runnable()
+	private Runnable sendFiles = new Runnable()
 	{
 		@Override
 		public void run()
-		{			
-			ObjectOutputStream oos;
-			
+		{
 			while(true)
 			{
 				if(enableThreads)
@@ -895,7 +898,6 @@ public class Client
 								String fileName = file.getName();
 								String fileHash = Utils.hashSHA1(Generator.genRandomString(20) + Utils.getCurrentDate());
 								
-								ArrayList<FileDataPackage> fdps = new ArrayList<>();
 								FileTransfer transfer = new FileTransfer(file, new FileTransferInterface()
 								{
 									@Override
@@ -952,30 +954,6 @@ public class Client
 								});
 								
 								transfer.begin();
-								while(fileTransfers.size() > 0)
-								{
-									while(fdps.size() > 0)
-									{
-										FileDataPackage fdp = fdps.get(0);
-										
-										try
-										{
-											if(client_state == 0)
-											{
-												oos = new ObjectOutputStream(new BufferedOutputStream(socket_files.getOutputStream()));
-												oos.writeObject(new DataPackage("user_file_data", fdp));
-												oos.flush();
-											}
-										}
-										catch(Exception ex) {}
-										
-										fdps.remove(0);
-										Utils.sleep(1);
-									}
-									
-									Utils.sleep(1);
-								}
-
 								files.remove(0);
 							}
 							catch(Exception ex) {}
@@ -987,8 +965,47 @@ public class Client
 			}
 		}
 	};
+	
+	private Runnable transfersThread = new Runnable()
+	{
+		@Override
+		public void run()
+		{
+			ObjectOutputStream oos;
+			
+			while(true)
+			{
+				if(enableThreads)
+				{
+					if(fileTransfers.size() > 0)
+					{
+						while(fdps.size() > 0)
+						{
+							FileDataPackage fdp = fdps.get(0);
+							
+							try
+							{
+								if(client_state == 0)
+								{
+									oos = new ObjectOutputStream(new BufferedOutputStream(socket_files.getOutputStream()));
+									oos.writeObject(new DataPackage("user_file_data", fdp));
+									oos.flush();
+								}
+							}
+							catch(Exception ex) {}
+							
+							fdps.remove(0);
+							Utils.sleep(1);
+						}
+					}
+				}
 
-	private static void cancelTransfer(String value, String type, boolean smsg)
+				Utils.sleep(1);
+			}
+		}
+	};
+
+	private void cancelTransfer(String value, String type, boolean smsg)
 	{
 		try
 		{
@@ -1028,17 +1045,17 @@ public class Client
 		catch(Exception ex) {}
 	}
 	
-	public static void sendFile(File f)
+	public void sendFile(File f)
 	{
 		files.add(f);
 	}
 	
-	private static void sendFileStatus(int s)
+	private void sendFileStatus(int s)
 	{
 		messagesToSend.add(new DataPackage("receive_file_data", s, username, localIP));
 	}
 
-	private static void logText(DataPackage dp)
+	private void logText(DataPackage dp)
 	{
 		String text = (String) dp.OBJECT;
 		String time = dp.TIME;
@@ -1050,7 +1067,7 @@ public class Client
 		vertical.setValue(vertical.getMaximum());
 	}
 	
-	private static void logText(Message msg)
+	private void logText(Message msg)
 	{
 		String text = msg.CONTENT;
 		String time = msg.TIME;
@@ -1062,7 +1079,7 @@ public class Client
 		vertical.setValue(vertical.getMaximum());
 	}
 	
-	private static void logText(String text)
+	private void logText(String text)
 	{
 		String time = Utils.getCurrentDateFormatted();
 		textArea.append("[Info - " + time + "]: " + text + "\n");
@@ -1071,7 +1088,7 @@ public class Client
 		vertical.setValue(vertical.getMaximum());
 	}
 	
-	private static void disconnect(boolean showMessage)
+	private void disconnect(boolean showMessage)
 	{
 		new Thread(new Runnable()
 		{
@@ -1095,7 +1112,7 @@ public class Client
 						showDisconnectMessage = true;
 						
 						cancelTransfer("all", "", false);
-						logText("Client has been disconnected from server " + srvIP + ":" + srvMessagesPort + "!");
+						logText("Client has been disconnected from server " + srvIP + ":" + SERVER_MESSAGES_PORT + "!");
 					}
 					else
 					{
@@ -1107,7 +1124,7 @@ public class Client
 		}).start();
 	}
 	
-	private static void reconnect()
+	private void reconnect()
 	{
 		disconnect(false);
 		
@@ -1120,7 +1137,7 @@ public class Client
 				{
 					if(disconnected)
 					{
-						connectToServer(srvIP, srvMessagesPort, srvFilesPort);
+						connectToServer(srvIP, SERVER_MESSAGES_PORT, SERVER_FILES_PORT);
 						break;
 					}
 					

@@ -44,30 +44,71 @@ import javax.swing.border.LineBorder;
 
 public class Server
 {
-	private static JFrame frame;
-	private static JPanel contentPane;
-	private static JPanel panel0;
-	private static JPanel panel1;
-	private static JPanel subPanel0;
-	private static JPanel subPanel1;
-	private static JList<String> list_clients;
-	private static DefaultListModel<String> list_clients_model;
-	private static JButton btnDisconnect;
-	private static JLabel lblConnectedClients;
-	private static JTextField txtMessage;
-	private static JScrollPane scrollPane;
-	private static JTextArea textArea;
-	private static JPanel panelList;
-	private static JPanel panel2;
-	private static JPanel subPanel2;
-	private static JButton btnSend;
-	private static JLabel lblConsole;
-	private static JButton btnSendFiles;
+	public final int SERVER_MESSAGES_PORT = 2400;
+	public final int SERVER_FILES_PORT = 2401;
+	
+	private JFrame frame;
+	private JPanel contentPane;
+	private JPanel panel0;
+	private JPanel panel1;
+	private JPanel subPanel0;
+	private JPanel subPanel1;
+	private JList<String> list_clients;
+	private DefaultListModel<String> list_clients_model;
+	private JButton btnDisconnect;
+	private JLabel lblConnectedClients;
+	private JTextField txtMessage;
+	private JScrollPane scrollPane;
+	private JTextArea textArea;
+	private JPanel panelList;
+	private JPanel panel2;
+	private JPanel subPanel2;
+	private JButton btnSend;
+	private JLabel lblConsole;
+	private JButton btnSendFiles;
 
-	private static void WindowServer(String ip, int port)
+	private String srvIP = "";
+
+	private ServerSocket srvMessages;
+	private ServerSocket srvFiles;
+	
+	private ArrayList<ClientThread> clients = new ArrayList<ClientThread>();
+	private boolean shutdown = false;
+	
+	private ArrayList<Message> messagesToSend = new ArrayList<Message>();	
+	private ArrayList<File> files = new ArrayList<File>();
+	
+	private ArrayList<FileTransfer> fileTransfers = new ArrayList<>();
+	private ArrayList<FileDataPackage> filesUsers = new ArrayList<>();
+
+	public Server(InetAddress addr)
+	{
+		srvIP = addr.getHostAddress();
+		init();
+		
+		try
+		{
+			srvMessages = new ServerSocket(SERVER_MESSAGES_PORT, 0, addr);
+			srvFiles = new ServerSocket(SERVER_FILES_PORT, 0, addr);
+
+			new Thread(acceptMessages).start();
+			new Thread(processMessages).start();
+			new Thread(sendMessages).start();
+			new Thread(sendFiles).start();
+			new Thread(sendUserFiles).start();
+
+			logText("Server has been started on " + srvIP + ":" + SERVER_MESSAGES_PORT + "!");
+		}
+		catch(Exception ex)
+		{
+			logText("Server could not be started! Port is already in use!");
+		}
+	}
+	
+	public void init()
 	{
 		frame = new JFrame();
-		frame.setTitle("Server - " + ip + ":" + port);
+		frame.setTitle("Server - " + srvIP + ":" + SERVER_MESSAGES_PORT);
 		frame.setResizable(false);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frame.setBounds(100, 100, 730, 430);
@@ -161,7 +202,7 @@ public class Server
 						@Override
 						public void Send(File f)
 						{
-							Server.sendFile(f);
+							sendFile(f);
 						}
 					});
 				}
@@ -191,8 +232,6 @@ public class Server
 		textArea.setFont(new Font("Consolas", Font.PLAIN, 12));
 		textArea.setEditable(false);
 		textArea.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-		
-		frame.setVisible(true);
 		
 		btnDisconnect.addActionListener(new ActionListener()
 		{
@@ -274,6 +313,8 @@ public class Server
 			@Override public void windowIconified(WindowEvent e) {}
 			@Override public void windowOpened(WindowEvent e) {}
 		});
+		
+		frame.setVisible(true);
 	}
 
 	public static void main(String[] args)
@@ -284,49 +325,14 @@ public class Server
 			{
 				try
 				{
-					InetAddress addr = InetAddress.getLocalHost();
-					srvIP = addr.getHostAddress();
-
-					WindowServer(srvIP, srvMessagesPort);
-					
-					try
-					{
-						srvMessages = new ServerSocket(srvMessagesPort, 0, addr);
-						srvFiles = new ServerSocket(srvFilesPort, 0, addr);
-
-						new Thread(acceptMessages).start();
-						new Thread(processMessages).start();
-						new Thread(sendMessages).start();
-						new Thread(sendFiles).start();
-						new Thread(sendUserFiles).start();
-
-						logText("Server has been started on " + srvIP + ":" + srvMessagesPort + "!");
-					}
-					catch(Exception ex)
-					{
-						logText("Server could not be started! Port is already in use!");
-					}
+					new Server(InetAddress.getLocalHost());
 				}
 				catch(Exception ex) {}
 			}
 		});
 	}
-	
-	private static String srvIP = "";
 
-	private static int srvMessagesPort = 2400;
-	private static int srvFilesPort = 2401;
-	
-	private static ServerSocket srvMessages;
-	private static ServerSocket srvFiles;
-	
-	private static ArrayList<ClientThread> clients = new ArrayList<ClientThread>();
-	private static boolean shutdown = false;
-	
-	private static ArrayList<Message> messagesToSend = new ArrayList<Message>();	
-	private static ArrayList<File> files = new ArrayList<File>();
-
-	private static Runnable acceptMessages = new Runnable()
+	private Runnable acceptMessages = new Runnable()
 	{
 		@Override
 		public void run()
@@ -369,7 +375,7 @@ public class Server
 						oos.writeObject(new DataPackage("message", "Welcome to the server, " + username + "!"));
 						oos.flush();
 
-						clients.add(new ClientThread(socket0, socket1, clientAddr, clientName));
+						clients.add(createClientThread(socket0, socket1, clientAddr, clientName));
 						list_clients_model.addElement(username + " - " + clientAddr + " - " + clientName);
 
 						sendMessage(username + " with IP " + clientAddr + " connected to the server!");
@@ -388,7 +394,7 @@ public class Server
 		}
 	};
 
-	private static Runnable processMessages = new Runnable()
+	private Runnable processMessages = new Runnable()
 	{
 		@Override
 		public void run()
@@ -438,7 +444,7 @@ public class Server
 		}
 	};
 	
-	private static Runnable sendMessages = new Runnable()
+	private Runnable sendMessages = new Runnable()
 	{
 		@Override
 		public void run()
@@ -466,25 +472,22 @@ public class Server
 		}
 	};	
 	
-	private static void sendMessage(String msg)
+	private void sendMessage(String msg)
 	{
 		messagesToSend.add(new Message("Server", Utils.getCurrentDateFormatted(), msg, srvIP));
 	}
 	
-	private static void sendUserMessage(DataPackage dp)
+	private void sendUserMessage(DataPackage dp)
 	{
 		messagesToSend.add((Message) dp.OBJECT);
 	}
-	
-	private static ArrayList<FileTransfer> fileTransfers = new ArrayList<>();
-	private static ArrayList<FileDataPackage> filesUsers = new ArrayList<>();
-	
-	public static void addUserFile(FileDataPackage fdp)
+
+	public void addUserFile(FileDataPackage fdp)
 	{
 		filesUsers.add(fdp);
 	}
 	
-	private static Runnable sendFiles = new Runnable()
+	private Runnable sendFiles = new Runnable()
 	{
 		@Override
 		public void run()
@@ -590,7 +593,7 @@ public class Server
 		}
 	};
 	
-	private static Runnable sendUserFiles = new Runnable()
+	private Runnable sendUserFiles = new Runnable()
 	{
 		@Override
 		public void run()
@@ -602,16 +605,26 @@ public class Server
 					while(filesUsers.size() > 0)
 					{
 						FileDataPackage fdp = filesUsers.get(0);
-						ClientThread client = null;
 						
-						for(ClientThread cli : clients)
+						if(fdp != null)
 						{
-							if(!cli.getIP().equals(fdp.IP))	cli.addDataPackage(new DataPackage("file_data", fdp));
-							else							client = cli;
+							ClientThread client = null;
+							
+							for(ClientThread cli : clients)
+							{
+								try
+								{
+									if(!cli.getIP().equals(fdp.IP))	cli.addDataPackage(new DataPackage("file_data", fdp));
+									else							client = cli;
+								}
+								catch(Exception ex) {}
+							}
+							
+							if(client != null)
+							{
+								client.addMessage(new DataPackage("send_file", 1));
+							}
 						}
-						
-						if(client != null)
-							client.addMessage(new DataPackage("send_file", 1));
 						
 						filesUsers.remove(0);
 					}
@@ -635,7 +648,7 @@ public class Server
 		}
 	};
 	
-	public static int getClientIndexByIP(String ip)
+	public int getClientIndexByIP(String ip)
 	{
 		for(int x = 0; x < clients.size(); x++)
 		{
@@ -650,12 +663,12 @@ public class Server
 		return -1;
 	}
 	
-	public static void sendFile(File f)
+	public void sendFile(File f)
 	{
 		files.add(f);
 	}
 
-	private static void logText(Message msg)
+	private void logText(Message msg)
 	{
 		String text = msg.CONTENT;
 		String time = msg.TIME;
@@ -667,12 +680,12 @@ public class Server
 		vertical.setValue(vertical.getMaximum());
 	}
 	
-	private static void logText(String text)
+	private void logText(String text)
 	{
 		logText(text, "Info");
 	}
 	
-	private static void logText(String text, String name)
+	private void logText(String text, String name)
 	{
 		String time = Utils.getCurrentDateFormatted();
 		textArea.append("[" + name + " - " + time + "]: " + text + "\n");
@@ -681,7 +694,7 @@ public class Server
 		vertical.setValue(vertical.getMaximum());
 	}
 	
-	private static void disconnectClient(int index)
+	private void disconnectClient(int index)
 	{
 		try
 		{
@@ -701,12 +714,12 @@ public class Server
 		catch(Exception ex) {}
 	}
 	
-	private static void disconnect(int index)
+	private void disconnect(int index)
 	{
 		disconnectClient(index);
 	}
 	
-	private static void shutdown()
+	private void shutdown()
 	{
 		for(ClientThread client : clients)
 		{
@@ -715,5 +728,20 @@ public class Server
 		
 		clients.clear();
 		shutdown = true;
+	}
+	
+	public ServerSocket getSocketMessages()
+	{
+		return srvMessages;
+	}
+	
+	public ServerSocket getSocketFiles()
+	{
+		return srvFiles;
+	}
+	
+	private ClientThread createClientThread(Socket socket0, Socket socket1, String clientAddr, String clientName)
+	{
+		return new ClientThread(this, socket0, socket1, clientAddr, clientName);
 	}
 }

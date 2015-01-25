@@ -9,6 +9,8 @@ import java.util.ArrayList;
 
 public class ClientThread
 {
+	private final Server server;
+	
 	private final Socket socket0;
 	private final Socket socket1;
 	
@@ -28,8 +30,9 @@ public class ClientThread
 	private boolean isWaiting;
 	private boolean isWaitingMSG;
 	
-	public ClientThread(Socket socket0, Socket socket1, String clientIP, String username)
+	public ClientThread(Server server, Socket socket0, Socket socket1, String clientIP, String username)
 	{
+		this.server = server;
 		this.socket0 = socket0;
 		this.socket1 = socket1;
 
@@ -169,7 +172,7 @@ public class ClientThread
 					if(dp.OBJECT_NAME.equals("user_file_data"))
 					{
 						FileDataPackage fdp = (FileDataPackage) dp.OBJECT;
-						Server.addUserFile(fdp);
+						server.addUserFile(fdp);
 					}
 				}
 				catch(Exception ex) {}
@@ -192,61 +195,69 @@ public class ClientThread
 				{
 					while(files_tosend.size() > 0)
 					{
-						try
+						DataPackage dp = files_tosend.get(0);
+						
+						if(dp != null)
 						{
-							DataPackage dp = files_tosend.get(0);
 							FileDataPackage fdp = (FileDataPackage) dp.OBJECT;
 							
-							if(!files_allowed.contains(fdp.FILE_HASH) && !files_canceled.contains(fdp.FILE_HASH))
+							try
 							{
-								DataPackage cr = new DataPackage("confirm_receive", new FileDataPackage(fdp.USERNAME, fdp.IP, fdp.FILE_HASH, fdp.FILE_NAME, fdp.FILE_SIZE, 0));
-								
-								oos = new ObjectOutputStream(new BufferedOutputStream(socket1.getOutputStream()));
-								oos.writeObject(cr);
-								oos.flush();
-								
-								int to = 0;
-								while(to < 30000)
+								if(!files_allowed.contains(fdp.FILE_HASH) && !files_canceled.contains(fdp.FILE_HASH))
 								{
-									if(file_status > 0)
+									DataPackage cr = new DataPackage("confirm_receive", new FileDataPackage(fdp.USERNAME, fdp.IP, fdp.FILE_HASH, fdp.FILE_NAME, fdp.FILE_SIZE, 0));
+									
+									oos = new ObjectOutputStream(new BufferedOutputStream(socket1.getOutputStream()));
+									oos.writeObject(cr);
+									oos.flush();
+									
+									int to = 0;
+									while(to < 30000)
 									{
-										switch(file_status)
+										if(file_status > 0)
 										{
-											case 2: files_allowed.add(fdp.FILE_HASH);	break;
-											case 3: files_canceled.add(fdp.FILE_HASH);	break;
+											switch(file_status)
+											{
+												case 2: files_allowed.add(fdp.FILE_HASH);	break;
+												case 3: files_canceled.add(fdp.FILE_HASH);	break;
+											}
+											
+											file_status = 0;
+											break;
 										}
 										
-										file_status = 0;
-										break;
+										to++;
+										if(to == 30000)
+										{
+											files_canceled.add(fdp.FILE_HASH);
+										}
+										
+										Utils.sleep(1);
 									}
-									
-									to++;
-									if(to == 30000)
-									{
-										files_canceled.add(fdp.FILE_HASH);
-									}
-									
-									Utils.sleep(1);
 								}
 							}
+							catch(Exception ex) {}
 							
-							if(files_allowed.contains(fdp.FILE_HASH) && !files_canceled.contains(fdp.FILE_HASH))
+							try
 							{
-								oos = new ObjectOutputStream(new BufferedOutputStream(socket1.getOutputStream()));
-								oos.writeObject(dp);
-								oos.flush();
-
-								isWaiting = true;
-								while(file_status == 0)
+								if(files_allowed.contains(fdp.FILE_HASH) && !files_canceled.contains(fdp.FILE_HASH))
 								{
-									Utils.sleep(1);
-								}
-								
-								isWaiting = false;
-								file_status = 0;
+									oos = new ObjectOutputStream(new BufferedOutputStream(socket1.getOutputStream()));
+									oos.writeObject(dp);
+									oos.flush();
+	
+									isWaiting = true;
+									while(file_status == 0)
+									{
+										Utils.sleep(1);
+									}
+									
+									isWaiting = false;
+									file_status = 0;
+								}	
 							}
+							catch(Exception ex) {}
 						}
-						catch(Exception ex) {}
 						
 						files_tosend.remove(0);
 						Utils.sleep(1);
